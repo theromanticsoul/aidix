@@ -38,25 +38,44 @@ These values are an initial commercial hypothesis. Changing price/quantity is a 
 
 No auto-renewal in MVP.
 
-## 5. Payment provider
+## 5. Payment provider — Robokassa
 
-Initial Russia payment adapter: ЮKassa.
+Production payment provider MVP: **Robokassa**.
 
-User flow:
+Canonical checkout flow:
 
-1. choose package;
-2. server creates internal Payment `PENDING`;
-3. server creates provider payment with idempotency key;
-4. user redirects to provider confirmation;
-5. return URL shows pending/succeeded status but does not grant credits based only on redirect;
-6. authenticated provider webhook and/or server-side status fetch confirms `SUCCEEDED`;
-7. idempotent `PACKAGE_PURCHASE` ledger entry grants credits.
+1. user chooses a package;
+2. server creates internal `Payment` in `PENDING` with stable internal invoice/order id;
+3. server builds Robokassa payment parameters including `MerchantLogin`, `OutSum`, `InvId` and `SignatureValue` using Password #1;
+4. browser is redirected/submitted to Robokassa payment interface;
+5. Robokassa sends authoritative server notification to configured `ResultURL`;
+6. AIDIX verifies `SignatureValue` for ResultURL using Password #2, verifies invoice identity and expected amount, then processes the notification idempotently;
+7. after successful processing AIDIX returns `OK{InvId}` to Robokassa;
+8. one idempotent `PACKAGE_PURCHASE` ledger entry grants package credits;
+9. `SuccessURL` and `FailURL` are user redirect surfaces only and never grant credits by themselves.
 
-## 6. Idempotency
+The internal payment state is the AIDIX source of truth. Browser return from Robokassa must only display/reload that state.
 
-Payment creation has stable business key.
+## 6. Robokassa signature boundary
 
-Webhook processing unique by provider event/payment identity.
+Provider-specific signature construction and validation belong only to the Robokassa infrastructure adapter.
+
+Minimum rules:
+
+- checkout signature uses configured Password #1;
+- ResultURL verification uses configured Password #2;
+- signature/hash algorithm is configuration matching Robokassa merchant technical settings, not hardcoded into domain logic;
+- `Shp_*` parameters, if used, must be included in signature construction/verification in the exact canonical order required by Robokassa;
+- compare normalized signature values safely and reject mismatches;
+- ResultURL handler must verify that `InvId` exists and that `OutSum` matches the internal expected payment amount before granting credits.
+
+Do not expose either Robokassa password to browser code or `NEXT_PUBLIC_*` variables.
+
+## 7. Idempotency
+
+Payment creation has a stable internal business key / invoice id.
+
+ResultURL processing must be idempotent by internal payment / `InvId`. Repeated valid notifications must return the expected successful acknowledgement without issuing another credit grant.
 
 Credit grant unique key example:
 
@@ -64,9 +83,19 @@ Credit grant unique key example:
 payment-credit:<internalPaymentId>
 ```
 
-Repeated webhooks cannot grant additional credits.
+Repeated ResultURL notifications cannot grant additional credits.
 
-## 7. Refunds
+## 8. Redirect semantics
+
+Robokassa surfaces:
+
+- `ResultURL` — authoritative server-to-server successful-payment notification for AIDIX billing state;
+- `SuccessURL` — browser redirect after successful payment UX;
+- `FailURL` — browser redirect after failed/canceled payment UX.
+
+AIDIX never marks a payment `SUCCEEDED` or grants credits solely because a user opened `SuccessURL`.
+
+## 9. Refunds
 
 ### Generation failure
 
@@ -78,21 +107,23 @@ Payment refund is support/admin flow, not self-service MVP.
 
 If monetary refund reverses unused purchased credits, system creates a `PAYMENT_REVERSAL` ledger movement. If user has already consumed credits, support policy must decide whether partial monetary refund is allowed; do not make ledger negative implicitly without explicit admin decision.
 
-## 8. Expiration
+Exact Robokassa refund/operation procedure must be implemented against the provider's current documented API at implementation time; do not infer it from checkout semantics.
+
+## 10. Expiration
 
 Purchased credits do not expire in MVP unless legal/business policy explicitly changes.
 
 Promotional credits may have future expiry, but signup promotion v1 has no expiry to avoid separate expiry accounting in initial implementation.
 
-## 9. Currency/taxes/receipts
+## 11. Currency/taxes/receipts
 
 MVP storefront currency: RUB.
 
-Fiscal receipt/VAT configuration depends on the merchant's legal/tax setup and must be confirmed before production payments. Do not hardcode tax treatment based solely on this engineering document.
+Fiscal receipt/VAT configuration depends on the merchant's legal/tax setup and Robokassa merchant configuration and must be confirmed before production payments. Do not invent tax treatment or receipt parameters in engineering code/docs before that business/legal decision.
 
-Payment provider payload should be isolated in adapter so receipt configuration can change without touching credit domain logic.
+Robokassa receipt payload details stay inside the payment adapter so tax/fiscalization configuration can change without touching credit domain logic.
 
-## 10. Admin adjustments
+## 12. Admin adjustments
 
 Manual credit adjustment requires:
 

@@ -36,7 +36,7 @@ Verify:
 
 - transaction prevents double-spend under concurrent generation requests;
 - worker claims each pending variant once using locking;
-- duplicate payment webhook cannot double-credit;
+- duplicate valid Robokassa ResultURL notification cannot double-credit;
 - duplicate refund cannot double-refund;
 - signup promotion is one idempotent `PROMO_GRANT` with amount `+3`;
 - FK/unique constraints match documented invariants.
@@ -79,7 +79,28 @@ Required fixtures:
 
 Assertions include exact variant lifecycle, callback idempotency, reconciliation behavior and credit/refund semantics.
 
-## 6. Prompt snapshot tests
+## 6. Robokassa adapter contract tests
+
+Normal CI uses fixtures/fake requests and does not create live payments.
+
+Required coverage:
+
+- checkout fields contain persisted `MerchantLogin`, canonical `OutSum`, stable `InvId` and a deterministic `SignatureValue` generated with Password #1;
+- configured hash algorithm is used consistently and remains provider-adapter configuration;
+- valid ResultURL notification signed with Password #2 is accepted;
+- invalid ResultURL signature is rejected without changing payment/credits;
+- unknown `InvId` is rejected;
+- mismatched `OutSum` versus persisted payment amount is rejected;
+- `Shp_*` parameters, when used, participate in signing/verifying in provider-required order;
+- first valid ResultURL moves payment to `SUCCEEDED`, creates exactly one `PACKAGE_PURCHASE` ledger entry and returns `OK{InvId}`;
+- duplicate valid ResultURL remains idempotent and returns successful acknowledgement without another credit grant;
+- SuccessURL request alone never transitions payment to `SUCCEEDED` and never grants credits;
+- FailURL request alone never mutates a successful payment;
+- Robokassa passwords never enter browser bundle or logs.
+
+An opt-in integration test uses Robokassa test mode and verifies the configured ResultURL/SuccessURL/FailURL routing before launch.
+
+## 7. Prompt snapshot tests
 
 For canonical room/style/reference inputs, snapshot normalized prompt payload and prompt version.
 
@@ -87,7 +108,7 @@ Do not snapshot provider-generated pixels in normal tests.
 
 Material prompt changes require deliberate snapshot review.
 
-## 7. Image fixture benchmark
+## 8. Image fixture benchmark
 
 Maintain private or licensed benchmark set representing:
 
@@ -112,7 +133,7 @@ Before changing AI model snapshot or major prompt version, run manual/semiautoma
 
 No single subjective score is enough. Record sample outputs and regression notes outside canonical requirements.
 
-## 8. Frontend architecture / FSD checks
+## 9. Frontend architecture / FSD checks
 
 CI must enforce the strict frontend architecture from `docs/implementation.md`.
 
@@ -123,12 +144,12 @@ Required checks:
 - cross-slice imports use public API rather than internal paths;
 - `src/app` remains thin and does not accumulate product components/business logic;
 - forbidden root-level generic folders such as `components`, `hooks`, `utils`, `helpers`, `types` are not introduced as parallel architecture;
-- React/FSD slices do not import Prisma, AWS SDK, Kie/payment infrastructure clients directly;
+- React/FSD slices do not import Prisma, AWS SDK, Kie/Robokassa infrastructure clients directly;
 - shadcn primitives remain under `src/6_shared/ui` and product-specific compositions do not leak into shared UI.
 
 Prefer automated lint/import-boundary rules plus focused architecture tests; code review alone is not sufficient.
 
-## 9. E2E browser tests
+## 10. E2E browser tests
 
 Critical Playwright flows:
 
@@ -141,10 +162,11 @@ Critical Playwright flows:
 7. see queued/running/success state;
 8. compare/download result;
 9. insufficient credits -> billing CTA;
-10. mocked payment success -> balance increases;
-11. technical generation failure -> refund visible.
+10. mocked valid Robokassa ResultURL -> balance increases exactly once;
+11. SuccessURL without ResultURL confirmation -> payment remains pending/no credits;
+12. technical generation failure -> refund visible.
 
-## 10. Security tests
+## 11. Security tests
 
 At minimum:
 
@@ -154,11 +176,13 @@ At minimum:
 - MIME spoofed upload rejected;
 - oversized upload rejected;
 - XSS payload in project name/wishes rendered safely;
-- webhook without valid provider verification rejected;
-- replay webhook safe;
+- Kie webhook without valid verification rejected;
+- Kie replay webhook safe;
+- Robokassa ResultURL with invalid signature rejected;
+- Robokassa amount tampering rejected;
 - no secret leaks in client bundle.
 
-## 11. Build gates
+## 12. Build gates
 
 Before merge:
 
@@ -178,18 +202,19 @@ For UI-affecting PRs:
 bun run test:e2e
 ```
 
-## 12. External smoke
+## 13. External smoke
 
-Opt-in, manually triggered environment may run one small real Kie generation, external S3 round-trip and payment sandbox flow.
+Opt-in, manually triggered environment may run one small real Kie generation, external S3 round-trip and Robokassa test-mode payment flow.
 
 Smoke checks external compatibility only. It is not the primary regression suite and must be budget-capped.
 
-## 13. Release gate MVP
+## 14. Release gate MVP
 
 Production launch blocked until:
 
 - no known cross-user authorization issue;
-- payment webhook idempotency proven;
+- Robokassa ResultURL signature/amount/idempotency behavior proven;
+- SuccessURL cannot grant credits;
 - credit double-spend concurrency test passes;
 - signup promotion grants exactly 3 credits once;
 - generation failure refunds proven;

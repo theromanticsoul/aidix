@@ -14,10 +14,37 @@ AIDIX — AI-сервис визуализации интерьера по фо�
 - Не добавлять Redis, Kafka, Kubernetes, микросервисы или local MinIO/S3 container без explicit product/architecture decision.
 - Изображения хранятся во внешнем S3-compatible object storage, а не в PostgreSQL. S3 не поднимается Docker Compose и подключается через ENV.
 - Kie.ai — единственный production image-generation API gateway MVP. Domain model не содержит Kie/model names как business enums; adapter detail остаётся в infrastructure layer.
+- Robokassa — payment provider MVP; payment/credit domain остаётся отделён от provider-specific signature/redirect semantics.
 - Credit списывается за продуктовую операцию, а не за upstream token/image accounting.
 - Любая генерация может завершиться ошибкой; credits не должны теряться из-за подтверждённой provider/system failure.
 - Generated image — визуальная концепция, а не точная строительная документация.
 - Frontend-часть Next.js строго следует Feature-Sliced Design. Нарушение FSD boundaries считается architecture defect, а не stylistic preference.
+
+## Decision hygiene
+
+LLM/разработчик **не имеет права додумывать существенные product/business/infrastructure решения**, которых нет в canonical docs или explicit owner message.
+
+К таким решениям относятся, в частности:
+
+- payment/provider vendor;
+- AI/model/provider vendor;
+- hosting/cloud vendor;
+- S3 vendor;
+- email/SMS provider;
+- analytics/observability vendor;
+- prices, package sizes, quotas и скидки;
+- tax/VAT/fiscal receipt semantics;
+- retention periods;
+- legal/privacy promises;
+- auth methods beyond documented set;
+- new external SaaS dependency;
+- irreversible schema/product constraints.
+
+Если такое значение не утверждено, canonical representation — `TBD`. Во время planning/docs task агент должен явно отметить missing decision владельцу. Во время implementation task агент должен остановить affected scope или реализовать provider-neutral boundary без выбора конкретного vendor, если это безопасно и не меняет product semantics.
+
+Нельзя выбирать «наиболее популярный», «логичный» или знакомый сервис и затем закреплять его в документации как принятое решение.
+
+Внешние factual details уже выбранного vendor можно уточнять по его актуальной официальной документации, но это не даёт права самостоятельно выбрать vendor.
 
 ## Обязательные источники
 
@@ -109,7 +136,7 @@ Rules:
 - `3_widgets` не создавать «на всякий случай»; widget появляется только для реально переиспользуемой крупной композиции;
 - `6_shared` не содержит product-specific business semantics;
 - не создавать параллельные каталоги `components/`, `hooks/`, `utils/`, `helpers/`, `types/` вне корректного FSD slice/layer;
-- React/FSD slices не импортируют Prisma client, AWS SDK, Kie client, payment SDK или `src/server/infrastructure` напрямую;
+- React/FSD slices не импортируют Prisma client, AWS SDK, Kie/Robokassa implementation или `src/server/infrastructure` напрямую;
 - server-only modules не импортируют React/FSD page/feature/entity UI.
 
 Любое отступление от этих правил требует explicit architecture decision владельца и docs-first update.
@@ -131,10 +158,10 @@ src/server/
     db/
     ai/kie/
     storage/
-    payments/
+    payments/robokassa/
 ```
 
-`server/core` не импортирует Next.js, React, Prisma client, Kie HTTP implementation, AWS SDK или payment SDK.
+`server/core` не импортирует Next.js, React, Prisma client, Kie HTTP implementation, AWS SDK или Robokassa-specific implementation.
 
 ## UI implementation rules
 
@@ -185,9 +212,10 @@ Application формирует structured prompt из:
 ## Billing rules
 
 - Новый eligible account получает ровно `3` promotional credits один раз; UI представляет их как три бесплатные генерации.
+- Robokassa `ResultURL` является authoritative server payment notification surface; `SuccessURL` сам по себе не подтверждает платёж.
 - Баланс определяется append-only `CreditLedgerEntry`, а не mutable `user.credits` как единственным source of truth.
 - Можно иметь cached balance, но ledger остаётся canonical.
-- Payment webhook идемпотентен по provider event/payment id.
+- Payment notification processing идемпотентно по internal payment/invoice identity.
 - Successful payment начисляет credits ровно один раз.
 - Generation failure refund создаёт отдельную ledger entry; исходное списание не удаляется.
 
@@ -207,7 +235,7 @@ bun run build
 
 Architecture/lint checks должны ловить запрещённые FSD imports и не позволять постепенно обходить FSD через generic root-level folders.
 
-External Kie/payment calls в обычном CI не выполняются. Использовать contract fixtures/fake adapters; отдельный opt-in smoke test может обращаться к Kie/платёжному sandbox. S3 integration test использует явно настроенный внешний test bucket, а не MinIO container.
+External Kie/Robokassa calls в обычном CI не выполняются. Использовать contract fixtures/fake adapters; отдельный opt-in smoke test может обращаться к Kie и Robokassa test mode. S3 integration test использует явно настроенный внешний test bucket, а не MinIO container.
 
 ## Progress handoff
 

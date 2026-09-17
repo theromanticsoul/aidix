@@ -106,16 +106,21 @@ Gate:
 Deliver:
 
 - package catalog;
-- ЮKassa create/return/webhook;
+- Robokassa payment checkout with signed `MerchantLogin + OutSum + InvId` parameters;
+- Robokassa `ResultURL` handler with Password #2 signature verification, amount/invoice verification and `OK{InvId}` acknowledgement;
+- `SuccessURL` / `FailURL` user redirect screens that never grant credits directly;
 - payment history;
-- credit grants;
-- support reconciliation path.
+- idempotent credit grants;
+- support reconciliation path;
+- Robokassa test-mode integration coverage.
 
 Gate:
 
-- sandbox payment passes;
-- duplicate webhook idempotency passes;
-- user never receives credits from return URL alone.
+- Robokassa test payment passes;
+- invalid ResultURL signature is rejected;
+- wrong amount/invoice is rejected;
+- repeated valid ResultURL notification is idempotent;
+- user never receives credits from `SuccessURL` alone.
 
 ## M7 — Production hardening / MVP launch
 

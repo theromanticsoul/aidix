@@ -25,6 +25,8 @@ migrate (Docker one-shot)
 
 Kie.ai — canonical image-generation gateway AIDIX. В MVP приложение не вызывает OpenAI, fal.ai, Replicate или другие model providers напрямую.
 
+Frontend-часть Next.js строго следует Feature-Sliced Design. FSD применяется только к frontend composition/UI; server-side application/domain/infrastructure code живёт в отдельной `src/server` boundary и не маскируется под FSD slices.
+
 ## 2. Repository structure
 
 ```text
@@ -37,28 +39,27 @@ src/
       webhooks/
         kie/
         yookassa/
-  modules/
-    account/
-    projects/
-    assets/
-    generations/
-    billing/
-  core/
-    generation/
-    credits/
-    payments/
-    storage/
-  infrastructure/
-    db/
-    ai/
-      kie/
-    storage/
-    payments/
-  shared/
-    config/
-    observability/
-    validation/
+  1_app/
+  2_pages/
+  3_widgets/
+  4_features/
+  5_entities/
+  6_shared/
     ui/
+    lib/
+    config/
+  server/
+    core/
+      generation/
+      credits/
+      payments/
+      storage/
+    infrastructure/
+      db/
+      ai/
+        kie/
+      storage/
+      payments/
 worker/
   index.ts
 prisma/
@@ -66,7 +67,42 @@ prisma/
   migrations/
 ```
 
-`src/core` не импортирует Next.js, React, Prisma client, Kie HTTP client implementation, AWS SDK или payment SDK.
+`src/app` — framework-owned Next.js App Router adapter layer. Route/layout files в нём должны быть тонкими: metadata, params, composition и вызов server adapters. Product UI и client behavior не складываются непосредственно в route directories.
+
+`src/server/core` не импортирует Next.js, React, Prisma client, Kie HTTP client implementation, AWS SDK или payment SDK.
+
+### Strict FSD frontend
+
+Canonical FSD layers:
+
+```text
+1_app -> 2_pages -> 3_widgets -> 4_features -> 5_entities -> 6_shared
+```
+
+Числовые префиксы обязательны. Они одновременно фиксируют dependency order и предотвращают конфликт FSD `pages` layer с Next.js legacy Pages Router.
+
+Responsibilities:
+
+- `1_app` — providers, client-side app composition, global app initialization;
+- `2_pages` — page-level compositions, которые импортируются route files из `src/app`;
+- `3_widgets` — переиспользуемые крупные UI-блоки; слой optional и создаётся только при реальной необходимости;
+- `4_features` — пользовательские действия/use-cases: create project, configure generation, purchase credits и т.п.;
+- `5_entities` — UI representation и model helpers бизнес-сущностей: project, generation, asset, credit balance;
+- `6_shared` — truly generic UI/lib/config без product-specific business semantics. shadcn/ui source primitives располагаются в `src/6_shared/ui`.
+
+Import rules:
+
+- слой импортирует только нижележащие FSD layers;
+- slices одного слоя не импортируют друг друга напрямую;
+- каждый slice предоставляет минимальный explicit public API, обычно через `index.ts`;
+- wildcard barrel exports запрещены;
+- внутри slice использовать relative imports, между slices — absolute aliases;
+- root-level generic folders `components`, `hooks`, `utils`, `helpers`, `types` запрещены как обход FSD;
+- `src/app` не становится альтернативным feature/page layer;
+- React/FSD code не импортирует Prisma, AWS SDK, Kie HTTP adapter, payment SDK или `src/server/infrastructure` напрямую;
+- server modules не импортируют React/FSD UI.
+
+FSD boundaries являются architecture requirement и должны проверяться lint/architecture tests, а не только code review.
 
 ## 3. Stack
 
@@ -75,6 +111,7 @@ Canonical stack:
 - Next.js 16+ App Router;
 - TypeScript strict mode;
 - React;
+- strict Feature-Sliced Design for Next.js frontend;
 - Tailwind CSS;
 - shadcn/ui;
 - Bun package manager/scripts/runtime tooling;
@@ -99,6 +136,8 @@ UI реализуется **только через Tailwind CSS + shadcn/ui**.
 Запрещено добавлять альтернативный UI/styling layer: MUI, Ant Design, Chakra, Mantine, Bootstrap, CSS Modules, Sass, styled-components, Emotion или отдельный custom component framework. Product components могут композиционно объединять shadcn/ui primitives и Tailwind utilities. Dependency, которую shadcn сам использует внутри сгенерированного primitive, не считается вторым UI layer, но application code не должен строить параллельную библиотеку компонентов поверх другого framework.
 
 `globals.css` ограничен Tailwind imports, shadcn theme variables/tokens и необходимым base layer. Page/feature styling выполняется Tailwind utilities и semantic shadcn tokens.
+
+shadcn/ui source primitives размещаются в `src/6_shared/ui`; product-specific wrapper/composition должен жить в корректном FSD slice, а не превращать `shared/ui` во второй product layer.
 
 ## 4. Authentication
 
@@ -413,6 +452,8 @@ A retry of the same product variant must not create a second credit charge. If p
 
 ## 14. Credits and transactions
 
+New eligible account receives `3` promotional credits exactly once. The ledger grant remains one idempotent `PROMO_GRANT` business operation with amount `+3`, not three independent grants.
+
 Generation enqueue transaction:
 
 ```text
@@ -614,4 +655,5 @@ MVP does not add:
 - direct OpenAI/fal.ai/Replicate generation integration;
 - local MinIO/S3 container;
 - separate admin backend;
-- a second UI framework or styling system alongside Tailwind + shadcn/ui.
+- a second UI framework or styling system alongside Tailwind + shadcn/ui;
+- non-FSD frontend structure such as root-level `components`, `hooks`, `utils` or `modules` used as parallel architecture.

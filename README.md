@@ -38,10 +38,10 @@ AIDIX не является CAD/BIM-системой и не заменяет р
 | --- | --- |
 | [Product](docs/product.md) | Ценность продукта, scope, пользовательские сценарии, генерационные режимы и ограничения. |
 | [Domain](docs/domain.md) | Сущности, lifecycle, invariants, credits и ownership. |
-| [Implementation](docs/implementation.md) | Архитектура, стек, FSD frontend, auth, AI integration, storage, jobs, security и deployment. |
-| [UI](docs/ui.md) | IA, landing, auth, generator, result flow, states, responsive semantics и SEO surface. |
+| [Implementation](docs/implementation.md) | Архитектура, стек, FSD frontend, auth/email, ENV, forms, AI integration, storage, jobs, security и deployment. |
+| [UI](docs/ui.md) | IA, landing, auth, forms, generator, result flow, states, responsive semantics и SEO surface. |
 | [Billing](docs/billing.md) | Credit ledger, Robokassa integration, payment lifecycle и refunds. |
-| [Testing](docs/testing.md) | Quality gates, Bun tests, contract tests, architecture checks, image-generation fixtures и release verification. |
+| [Testing](docs/testing.md) | Quality gates, Bun tests, ENV/email/form contracts, architecture checks и release verification. |
 | [Roadmap](docs/roadmap.md) | Порядок реализации, acceptance gates и future modules. |
 | [Research](docs/research.md) | Ненормативный срез конкурентов и внешних технологий на дату исследования. |
 | [Progress](docs/progress.md) | Ненормативный handoff между LLM/coding sessions. |
@@ -69,7 +69,7 @@ src/
       storage/   S3-compatible object storage
       ai/kie/    Kie.ai adapter
       payments/  Robokassa adapter behind payment port
-      email/     provider-neutral OTP delivery boundary; production vendor TBD
+      email/     React Email renderer + SMTP transport boundary
 worker/
   generation worker из той же codebase
 prisma/
@@ -87,11 +87,15 @@ FSD dependency direction: `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_enti
 - **Bun как runtime, package manager, script runner и test runner**;
 - внешний PostgreSQL, подключаемый через `DATABASE_URL`; PostgreSQL container в Compose не поднимается;
 - Prisma ORM и migrations;
-- Better Auth + Email OTP для passwordless входа; production email provider — `TBD`;
+- Better Auth + Email OTP для passwordless входа;
+- **React Email** для OTP и других transactional email templates;
+- отправка email через SMTP; SMTP host/credentials/from-address задаются только через ENV, конкретный SMTP transport package является replaceable implementation detail;
+- **T3 Env + Valibot** для типизированной валидации ENV;
+- **Formisch + Valibot** для пользовательских форм;
+- Valibot является canonical schema validation library; Zod/React Hook Form не входят в stack без отдельного решения;
 - social auth — future capability, конкретные providers `TBD`;
 - внешний S3-compatible object storage для source/reference/generated images, подключаемый только через ENV и не поднимаемый Compose;
 - **Kie.ai** как единственный image-generation API gateway MVP; конкретная image model — `TBD` до owner decision перед M3;
-- асинхронный Kie flow: `createTask -> callback/reconciliation -> copy result to AIDIX S3`;
 - **Robokassa** как production payment provider MVP;
 - Docker Compose как обязательный способ запуска AIDIX application processes (`web`, `worker`, `migrate`); внешний PostgreSQL и S3 остаются вне Compose;
 - отдельный reverse proxy/Caddy в repository stack не используется;

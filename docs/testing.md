@@ -6,8 +6,9 @@
 unit
   -> domain/application integration
     -> database/storage integration
-      -> browser E2E
-        -> opt-in external-provider smoke
+      -> architecture/FSD checks
+        -> browser E2E
+          -> opt-in external-provider smoke
 ```
 
 Normal CI must not spend paid AI credits or create real payments.
@@ -18,7 +19,8 @@ Required domain coverage:
 
 - generation cost calculation;
 - insufficient balance;
-- one-time promo grant;
+- one-time signup promo grant amount exactly `+3` credits;
+- repeated signup/promo path cannot grant another `+3`;
 - refund idempotency;
 - parent status derivation from variants;
 - retry classification;
@@ -36,6 +38,7 @@ Verify:
 - worker claims each pending variant once using locking;
 - duplicate payment webhook cannot double-credit;
 - duplicate refund cannot double-refund;
+- signup promotion is one idempotent `PROMO_GRANT` with amount `+3`;
 - FK/unique constraints match documented invariants.
 
 ## 4. Storage integration
@@ -109,12 +112,28 @@ Before changing AI model snapshot or major prompt version, run manual/semiautoma
 
 No single subjective score is enough. Record sample outputs and regression notes outside canonical requirements.
 
-## 8. E2E browser tests
+## 8. Frontend architecture / FSD checks
+
+CI must enforce the strict frontend architecture from `docs/implementation.md`.
+
+Required checks:
+
+- imports follow `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_entities -> 6_shared` direction;
+- slices of the same layer do not import each other directly;
+- cross-slice imports use public API rather than internal paths;
+- `src/app` remains thin and does not accumulate product components/business logic;
+- forbidden root-level generic folders such as `components`, `hooks`, `utils`, `helpers`, `types` are not introduced as parallel architecture;
+- React/FSD slices do not import Prisma, AWS SDK, Kie/payment infrastructure clients directly;
+- shadcn primitives remain under `src/6_shared/ui` and product-specific compositions do not leak into shared UI.
+
+Prefer automated lint/import-boundary rules plus focused architecture tests; code review alone is not sufficient.
+
+## 9. E2E browser tests
 
 Critical Playwright flows:
 
 1. signup/login;
-2. free credit visible;
+2. initial balance shows `3` free promotional credits / three free generations;
 3. create project;
 4. upload source photo;
 5. configure generator;
@@ -125,7 +144,7 @@ Critical Playwright flows:
 10. mocked payment success -> balance increases;
 11. technical generation failure -> refund visible.
 
-## 9. Security tests
+## 10. Security tests
 
 At minimum:
 
@@ -139,7 +158,7 @@ At minimum:
 - replay webhook safe;
 - no secret leaks in client bundle.
 
-## 10. Build gates
+## 11. Build gates
 
 Before merge:
 
@@ -151,26 +170,30 @@ bun run test:integration
 bun run build
 ```
 
+`lint`/architecture test suite must include FSD boundary enforcement.
+
 For UI-affecting PRs:
 
 ```text
 bun run test:e2e
 ```
 
-## 11. External smoke
+## 12. External smoke
 
 Opt-in, manually triggered environment may run one small real Kie generation, external S3 round-trip and payment sandbox flow.
 
 Smoke checks external compatibility only. It is not the primary regression suite and must be budget-capped.
 
-## 12. Release gate MVP
+## 13. Release gate MVP
 
 Production launch blocked until:
 
 - no known cross-user authorization issue;
 - payment webhook idempotency proven;
 - credit double-spend concurrency test passes;
+- signup promotion grants exactly 3 credits once;
 - generation failure refunds proven;
+- strict FSD boundary checks pass;
 - object storage private;
 - Kie launch model benchmark accepted;
 - Kie webhook HMAC verification and missed-callback reconciliation proven;

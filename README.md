@@ -90,7 +90,7 @@ FSD dependency direction: `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_enti
 - Better Auth + Email OTP для passwordless входа; production email provider — `TBD`;
 - social auth — future capability, конкретные providers `TBD`;
 - внешний S3-compatible object storage для source/reference/generated images, подключаемый только через ENV и не поднимаемый Compose;
-- **Kie.ai** как единственный image-generation API gateway MVP; initial model — `gpt-image-2-5-sunburst-image-to-image`;
+- **Kie.ai** как единственный image-generation API gateway MVP; конкретная image model — `TBD` до owner decision перед M3;
 - асинхронный Kie flow: `createTask -> callback/reconciliation -> copy result to AIDIX S3`;
 - **Robokassa** как production payment provider MVP;
 - Docker Compose как обязательный способ запуска AIDIX application processes (`web`, `worker`, `migrate`); внешний PostgreSQL и S3 остаются вне Compose;

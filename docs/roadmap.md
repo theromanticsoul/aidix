@@ -7,6 +7,9 @@ Roadmap fixes implementation order, not calendar promises.
 Acceptance:
 
 - Next.js/TypeScript/Bun project;
+- strict frontend FSD skeleton: `src/app`, `src/1_app`, `src/2_pages`, `src/3_widgets`, `src/4_features`, `src/5_entities`, `src/6_shared`;
+- automated FSD/import-boundary checks from the beginning;
+- Tailwind CSS + shadcn/ui only, with shadcn primitives under `src/6_shared/ui`;
 - lint/typecheck/test/build scripts;
 - PostgreSQL + Prisma migration path;
 - Better Auth basic account;
@@ -20,12 +23,13 @@ Deliver:
 - project CRUD;
 - authenticated external S3-compatible object storage from ENV;
 - image upload/validation/normalization;
-- project gallery/history shell.
+- project gallery/history shell implemented inside documented FSD boundaries.
 
 Gate:
 
 - cross-user authorization tests;
 - private storage tests;
+- FSD architecture checks pass;
 - valid source image can be uploaded and viewed only by owner.
 
 ## M2 — Credits
@@ -33,14 +37,15 @@ Gate:
 Deliver:
 
 - append-only ledger;
-- signup promo grant;
+- one-time signup promo grant of exactly `+3` credits;
+- UI copy representing the promo as `3 бесплатные генерации`;
 - balance UI;
 - atomic reserve/charge helpers.
 
 Gate:
 
 - concurrent requests cannot overspend;
-- promo cannot duplicate.
+- promo cannot duplicate and always grants exactly 3 credits once.
 
 ## M3 — First AI generation
 
@@ -81,7 +86,7 @@ Gate:
 
 Deliver:
 
-- hero;
+- hero with `3 бесплатные генерации` offer;
 - before/after examples;
 - how it works;
 - styles;
@@ -93,7 +98,8 @@ Deliver:
 Gate:
 
 - every CTA resolves to functional signup/generator flow;
-- no copy promises unimplemented plan/3D capability.
+- no copy promises unimplemented plan/3D capability;
+- landing/authenticated frontend obey FSD and Tailwind + shadcn constraints.
 
 ## M6 — Payments
 

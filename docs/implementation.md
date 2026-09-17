@@ -27,7 +27,7 @@ AIDIX repository stack не содержит Caddy/reverse-proxy container. TLS/
 
 Нет отдельного REST API application: browser взаимодействует с Next.js Server Actions/Route Handlers. Public integration API не является product requirement.
 
-Kie.ai — canonical image-generation gateway AIDIX. В MVP приложение не вызывает OpenAI, fal.ai, Replicate или другие model providers напрямую.
+Kie.ai — canonical image-generation gateway AIDIX. Конкретная image model внутри Kie.ai не выбрана и остаётся `TBD` до explicit owner decision перед M3. В MVP приложение не вызывает OpenAI, fal.ai, Replicate или другие model providers напрямую.
 
 Robokassa — canonical payment provider MVP. Payment/credit domain остаётся отделён от provider-specific signature and redirect semantics.
 
@@ -248,7 +248,7 @@ Original can be retained for user download/future reprocessing; provider always 
 
 ## 7. Kie.ai integration
 
-Kie.ai is the only image-generation API provider in MVP.
+Kie.ai is the only image-generation API gateway in MVP.
 
 Base API:
 
@@ -256,20 +256,15 @@ Base API:
 https://api.kie.ai
 ```
 
-Task creation uses the unified endpoint:
+Task creation uses the Kie jobs API. Exact request mapping depends on the **owner-approved model** selected before M3.
+
+Canonical model state:
 
 ```text
-POST /api/v1/jobs/createTask
-Authorization: Bearer <KIE_API_KEY>
+KIE_IMAGE_MODEL=TBD
 ```
 
-Initial image-to-image model:
-
-```text
-gpt-image-2-5-sunburst-image-to-image
-```
-
-The model is configuration, not a business enum. Changing the default model requires the image benchmark defined in `docs/testing.md`.
+Do not implement or document one Kie model as canonical until the owner explicitly selects it. Candidate models may be benchmarked in research, but research does not change this requirement.
 
 ### Application port
 
@@ -281,8 +276,8 @@ type ImageEditRequest = {
     url: string;
   }>;
   prompt: string;
-  aspectRatio: 'auto' | string;
-  resolution: '1K' | '2K' | '4K';
+  aspectRatio?: string;
+  quality?: string;
   callbackUrl: string;
 };
 
@@ -298,121 +293,67 @@ interface ImageProvider {
 }
 ```
 
-Adapter implementation uses Kie.ai HTTP API. Domain/application services depend only on this port so tests can use a fake provider; this does not imply that multiple production providers are planned for MVP.
+Adapter implementation uses Kie.ai HTTP API. Domain/application services depend only on this port so tests can use a fake provider; this does not imply that multiple production gateways are planned for MVP.
 
 ### Kie request mapping
 
-For `REDESIGN_PHOTO`, the first `input_urls` element is always the normalized source room image. Optional reference assets follow in deterministic `GenerationReference.position` order.
+Model-specific path/payload fields are defined only after model selection. The invariant mapping for `REDESIGN_PHOTO` is:
 
-Example provider payload shape:
-
-```json
-{
-  "model": "gpt-image-2-5-sunburst-image-to-image",
-  "callBackUrl": "https://aidix.example/api/webhooks/kie",
-  "input": {
-    "prompt": "<compiled English prompt>",
-    "input_urls": [
-      "<signed source URL>",
-      "<signed reference URL>"
-    ],
-    "aspect_ratio": "auto",
-    "resolution": "2K",
-    "background": "opaque"
-  }
-}
-```
+- normalized source room image is the primary image input;
+- optional reference assets follow in deterministic `GenerationReference.position` order if the chosen model supports them;
+- prompt is compiled by AIDIX;
+- callback/public completion URL is supplied when supported/required by the chosen Kie model API;
+- model-specific option names never leak into domain types unnecessarily.
 
 Do not spread raw Kie request/response shapes through core modules. The adapter validates provider responses with Zod and maps them into internal types.
 
 ### Language
 
-Provider-facing prompt is normalized to English. Russian user wishes remain stored as user input, while prompt compilation may translate/normalize them before provider submission. The exact translation mechanism belongs to prompt implementation and must not require a second user-visible LLM product surface.
+Provider-facing prompt may be normalized to the language that benchmarks best for the selected model. Russian user wishes remain stored as user input. Exact translation/normalization mechanism belongs to prompt implementation and must not require a second user-visible LLM product surface unless explicitly approved.
 
 ## 8. Asynchronous generation lifecycle
 
-Kie.ai tasks are asynchronous. HTTP `200` from `createTask` means the provider accepted a task; it does **not** mean an image exists.
+Kie.ai generation is treated as asynchronous. Provider task acceptance does **not** mean an image exists.
 
 Canonical flow:
 
 1. user request transaction creates `Generation`, variants and charge;
 2. worker claims a `PENDING` variant;
 3. worker creates signed S3 input URLs and compiles prompt;
-4. worker calls Kie `createTask` outside DB transaction;
-5. successful response returns `taskId`;
+4. worker calls Kie outside DB transaction;
+5. successful submission returns/stores provider task identity;
 6. worker persists `providerTaskId`, provider/model snapshot and keeps variant in `RUNNING`;
-7. Kie calls public callback endpoint when task changes/completes;
-8. callback verifies HMAC, records `providerCallbackAt`/completion hint idempotently and returns quickly;
-9. worker calls Kie task-detail endpoint, obtains authoritative state/result;
-10. on success worker downloads the temporary provider result, validates it, writes it to AIDIX S3, attaches `outputAssetId`, then marks variant `SUCCEEDED`;
+7. provider callback, when available, acts as completion hint;
+8. callback handling is idempotent and returns quickly;
+9. worker queries authoritative provider task state when the selected Kie API supports task-detail reconciliation;
+10. on success worker downloads temporary provider result, validates it, writes it to AIDIX S3, attaches `outputAssetId`, then marks variant `SUCCEEDED`;
 11. on terminal provider failure worker classifies failure and settles refund;
 12. parent `Generation` status is derived from variants.
 
 A provider result URL is never the AIDIX output asset. Success is finalized only after the generated file is stored in AIDIX-owned S3.
 
-## 9. Kie callback endpoint
+Exact callback signature/headers/task-detail endpoint are model/API-contract details to be finalized against current Kie documentation after model selection; they must not be guessed.
 
-Route:
+## 9. Reconciliation and callbacks
 
-```text
-POST /api/webhooks/kie
-```
+Callbacks optimize latency but are not trusted as the sole durable state transition when the selected Kie API exposes task lookup.
 
-Production must enable Kie webhook HMAC verification.
+Requirements after model selection:
 
-Expected headers:
+- callback processing idempotent by provider task id;
+- callback/body verification follows current Kie contract exactly;
+- callback never directly stores external result URL as canonical output;
+- worker can reconcile `RUNNING` provider tasks through the selected Kie task-detail API where available;
+- timeout/retry policy is configuration and benchmark-driven rather than a product promise.
 
-```text
-X-Webhook-Timestamp
-X-Webhook-Signature
-```
-
-Verification rule:
-
-```text
-base64(HMAC-SHA256(taskId + "." + timestamp, KIE_WEBHOOK_HMAC_KEY))
-```
-
-Requirements:
-
-- compare signatures in constant time;
-- reject timestamps outside a small replay window (target: 5 minutes);
-- resolve variant by exact `providerTaskId`;
-- processing is idempotent because Kie may send repeated callbacks;
-- do not trust callback result URL/body as canonical provider state;
-- callback performs only verification + small DB update and returns quickly;
-- image download/storage remains worker work.
-
-The callback URL must be publicly reachable by Kie.ai.
-
-## 10. Reconciliation polling
-
-Callbacks optimize latency but are not the only completion mechanism.
-
-Worker periodically reconciles `RUNNING` variants with a `providerTaskId`:
-
-- callback-hinted variants are checked immediately/with highest priority;
-- variants without callback are polled after a short delay;
-- recommended polling interval target: ~30 seconds;
-- stop normal polling after the configured generation timeout; initial target: 15 minutes;
-- timed-out variants receive a final reconciliation attempt before failure classification.
-
-Task detail endpoint:
-
-```text
-GET /api/v1/jobs/recordInfo?taskId=<providerTaskId>
-```
-
-This protects AIDIX against missed/failed callbacks.
-
-## 11. Prompt construction
+## 10. Prompt construction
 
 User wishes are one section of a controlled prompt.
 
 Pseudo-template:
 
 ```text
-Task: redesign the FIRST image, which is the user's real room.
+Task: redesign the primary image, which is the user's real room.
 Room type: <room>
 Target style: <style recipe>
 
@@ -426,7 +367,7 @@ Change:
 - apply user wishes where compatible.
 
 References:
-- following images are labeled by role; use them as visual guidance.
+- following reference images are labeled by role; use them as visual guidance when supported by the selected model.
 
 User wishes:
 <normalized wishes>
@@ -436,7 +377,7 @@ Do not add text/watermarks. Produce one photorealistic interior visualization.
 
 Prompt templates are versioned in code (`redesign/v1`, etc.). Changing semantics is a product change if it materially changes output contract.
 
-## 12. Worker
+## 11. Worker
 
 Worker polls external PostgreSQL rows using database locking; no Redis/message broker.
 
@@ -448,26 +389,26 @@ FOR UPDATE SKIP LOCKED
 LIMIT 1;
 ```
 
-Worker has two job classes inside one process initially:
+Worker has two logical job classes inside one process initially:
 
 - `SUBMIT_VARIANT` — submit pending variant to Kie;
-- `RECONCILE_VARIANT` — query Kie state and persist terminal result into S3.
+- `RECONCILE_VARIANT` — reconcile provider state and persist terminal result into S3.
 
 No separate distributed queue is introduced. Job intent/state is derived from persisted variant fields.
 
-Worker concurrency controlled by ENV. Initial submission concurrency target: `2`; reconciliation may use a separate small concurrency limit.
+Worker concurrency controlled by ENV. Concrete concurrency defaults may be introduced during implementation after observing provider/database limits; do not present guessed values as product requirements.
 
-## 13. Retry classification
+## 12. Retry classification
 
 Retryable examples:
 
 - network timeout;
-- Kie 429/rate limit;
-- Kie 5xx;
+- provider rate limit;
+- provider 5xx/transient failure;
 - transient S3 failure;
 - transient external PostgreSQL connectivity failure where transaction safety is preserved;
 - temporary failure while downloading provider result;
-- missed callback when task can still be reconciled.
+- missed callback when provider task can still be reconciled.
 
 Terminal/user-input examples:
 
@@ -480,7 +421,7 @@ Use exponential backoff with jitter. Store safe `errorCode`, not full upstream b
 
 A retry of the same product variant must not create a second credit charge. If provider task submission outcome is ambiguous, reconcile known provider identifiers where possible before creating a replacement provider task.
 
-## 14. Credits and transactions
+## 13. Credits and transactions
 
 New eligible account receives `3` promotional credits exactly once after successful first OTP authentication. The ledger grant remains one idempotent `PROMO_GRANT` business operation with amount `+3`, not three independent grants.
 
@@ -500,17 +441,17 @@ External Kie call begins only after commit.
 
 Refund is another idempotent transaction keyed by failed variant id.
 
-## 15. Result image security
+## 14. Result image security
 
 Kie-generated result URLs are temporary upstream transport and must be copied into AIDIX-owned S3 immediately after authoritative success is observed.
 
 Do not persist provider image bytes/base64 in PostgreSQL or logs. A temporary provider URL may exist only in process memory while downloading a result; canonical persistence is `Asset.storageKey`.
 
-Signed user-read URL TTL target: 5–15 minutes.
+Signed user-read URL TTL is configuration, not product semantics.
 
-Image endpoints send appropriate `Content-Disposition` for downloads and `Cache-Control: private`.
+Image endpoints send appropriate private caching/download headers.
 
-## 16. Robokassa payments
+## 15. Robokassa payments
 
 Robokassa is the production payment provider for MVP. Domain code must not know signature formulas, merchant credentials or Robokassa URL/query shapes.
 
@@ -545,44 +486,30 @@ interface PaymentProvider {
 
 Adapter: `src/server/infrastructure/payments/robokassa`.
 
-### Checkout
+### Checkout and ResultURL
 
-Robokassa payment request includes at minimum:
-
-```text
-MerchantLogin
-OutSum
-InvId
-Description
-SignatureValue
-```
-
-`InvId` maps to a stable AIDIX internal payment/invoice identity. `OutSum` is generated from the canonical approved purchase snapshot stored by AIDIX. Checkout `SignatureValue` is calculated inside the adapter using Robokassa Password #1 and the hash algorithm configured for the merchant account.
+Robokassa payment request includes provider-required merchant/login, amount, invoice and signature fields. `InvId` maps to a stable AIDIX internal payment/invoice identity. Checkout signature is calculated inside the adapter using server-only Robokassa credentials and the merchant-configured hash algorithm.
 
 AIDIX must not trust amount/catalog data coming back from the browser. Server constructs checkout from persisted `Payment` and immutable purchase snapshot.
 
-### ResultURL
-
-Canonical server notification route:
+Canonical ResultURL route:
 
 ```text
 POST /api/payments/robokassa/result
 ```
 
-GET support may be enabled only if merchant technical settings intentionally use GET. Production configuration should use one explicitly documented method and tests must match it.
-
 ResultURL processing:
 
-1. parse `OutSum`, `InvId`, `SignatureValue` and any returned `Shp_*` parameters;
+1. parse provider fields;
 2. load internal `Payment` by stable invoice id;
-3. reconstruct Robokassa ResultURL signature with Password #2 and configured hash algorithm;
+3. reconstruct/verify provider signature using server-only credentials;
 4. reject mismatched signature;
-5. compare normalized received `OutSum` with persisted expected amount;
+5. compare received amount with persisted expected amount;
 6. idempotently transition eligible `Payment` to `SUCCEEDED`;
 7. append exactly one purchase credit-grant ledger entry;
-8. return plain text `OK{InvId}`.
+8. return the acknowledgement required by Robokassa.
 
-Repeated valid ResultURL notifications for an already succeeded payment must not grant credits twice and should still return the expected successful acknowledgement.
+Repeated valid notifications for an already succeeded payment must not grant credits twice.
 
 ### SuccessURL / FailURL
 
@@ -593,32 +520,22 @@ User-facing routes:
 /api/payments/robokassa/fail
 ```
 
-They are navigation/UX surfaces only. They may redirect to `/app/billing?payment=<id>` or equivalent, but they never mutate payment to `SUCCEEDED` and never grant credits.
+They are navigation/UX surfaces only and never grant credits directly.
 
 ### Credentials and secrets
 
-Robokassa credentials are server-only:
-
-```text
-ROBOKASSA_MERCHANT_LOGIN
-ROBOKASSA_PASSWORD_1
-ROBOKASSA_PASSWORD_2
-ROBOKASSA_HASH_ALGORITHM
-ROBOKASSA_IS_TEST
-```
-
-No Robokassa secret uses `NEXT_PUBLIC_*`.
+Robokassa credentials are server-only. No Robokassa secret uses `NEXT_PUBLIC_*`.
 
 Exact currency, receipt/fiscalization/tax parameters are **TBD until owner/legal/merchant configuration is explicitly decided**. Implementation must not invent them.
 
-## 17. Docker deployment
+## 16. Docker deployment
 
 Docker is mandatory for AIDIX application processes. Local development should not depend on host-run Bun application processes.
 
 Canonical Compose services:
 
 ```text
-web       Next.js application running on Bun-compatible runtime setup
+web       Next.js application running with Bun project runtime/toolchain
 worker    generation worker running with Bun
 migrate   one-shot Prisma migrations
 ```
@@ -651,17 +568,17 @@ Runtime containers:
 
 Worker/application readiness must not depend on Kie, Robokassa, S3 or email provider being online at boot beyond explicit route/use-case requirements. Database connectivity is required for readiness.
 
-## 18. Health
+## 17. Health
 
 - `/api/health`: process liveness;
 - `/api/ready`: checks external PostgreSQL connectivity;
-- optional S3 diagnostic is separate from liveness and must not make web process unavailable because of a transient external storage outage;
+- optional S3 diagnostic is separate from liveness;
 - optional email-provider diagnostic is separate from liveness;
 - worker heartbeat table/metric indicates last loop/claimed/reconciled job.
 
 Kie.ai, Robokassa, S3 and email provider are not part of basic `/ready`; upstream outage should not make marketing pages unavailable. Auth/generation/payment operations should surface dependency-specific failures.
 
-## 19. Observability
+## 18. Observability
 
 Structured JSON logs with request/generation/provider task/payment ids.
 
@@ -669,8 +586,8 @@ Never log:
 
 - session tokens;
 - OTP values in production;
-- Kie API key or webhook HMAC key;
-- Robokassa Password #1 / Password #2;
+- Kie API key or other Kie secrets;
+- Robokassa secrets;
 - email-provider secrets;
 - image base64/binary payloads;
 - full signed S3 URLs;
@@ -681,19 +598,18 @@ Metrics MVP:
 
 - generation queue depth;
 - provider submissions;
-- Kie generation latency p50/p95;
-- callback received/invalid/replayed counts;
-- reconciliation poll count;
+- generation latency p50/p95;
+- callback/reconciliation counts where supported by selected Kie model API;
 - success/partial/failure counts;
 - provider error class;
 - S3 error count;
 - payment success/failure;
-- Robokassa ResultURL signature failures;
+- invalid payment notification count;
 - duplicate payment notification count;
 - OTP send/verify success/failure counters without storing OTP values;
 - credit refund count.
 
-## 20. Environment
+## 19. Environment
 
 Minimum production config:
 
@@ -713,40 +629,27 @@ S3_REGION
 S3_BUCKET
 S3_ACCESS_KEY_ID
 S3_SECRET_ACCESS_KEY
-S3_FORCE_PATH_STYLE=false
-S3_PROVIDER_URL_TTL_SECONDS=1800
-S3_USER_URL_TTL_SECONDS=600
+S3_FORCE_PATH_STYLE
 
 # Kie.ai
 KIE_API_BASE_URL=https://api.kie.ai
 KIE_API_KEY
-KIE_IMAGE_MODEL=gpt-image-2-5-sunburst-image-to-image
-KIE_IMAGE_RESOLUTION=2K
-KIE_WEBHOOK_HMAC_KEY
-KIE_GENERATION_TIMEOUT_SECONDS=900
-KIE_RECONCILE_INTERVAL_SECONDS=30
-
-# worker
-GENERATION_WORKER_CONCURRENCY=2
-GENERATION_RECONCILE_CONCURRENCY=2
+KIE_IMAGE_MODEL=TBD
+# other model-specific options: defined only after model selection
 
 # Robokassa
 ROBOKASSA_MERCHANT_LOGIN
 ROBOKASSA_PASSWORD_1
 ROBOKASSA_PASSWORD_2
 ROBOKASSA_HASH_ALGORITHM
-ROBOKASSA_IS_TEST=false
+ROBOKASSA_IS_TEST
 ```
-
-`KIE_CALLBACK_URL` normally derives from `APP_URL + /api/webhooks/kie`; separate override is allowed only for deployment routing needs.
-
-Robokassa `ResultURL`, `SuccessURL` and `FailURL` are configured in the Robokassa merchant technical settings to point at the public AIDIX routes documented above.
 
 Secrets never use `NEXT_PUBLIC_*`.
 
-Startup config validation fails fast for variables required by the process/use-case being started. A production environment cannot enable Email OTP sign-in until an approved production email provider is configured.
+Startup config validation fails fast for variables required by the process/use-case being started. A production environment cannot enable Email OTP sign-in until an approved production email provider is configured. Generation cannot be enabled until `KIE_IMAGE_MODEL` is explicitly selected/configured.
 
-## 21. Local development workflow
+## 20. Local development workflow
 
 Canonical startup:
 
@@ -770,7 +673,7 @@ Normal automated tests use fakes where external services are unnecessary. Dedica
 
 Robokassa test mode is used for opt-in external payment integration testing; normal CI uses deterministic fixtures/fake adapter and never depends on live provider availability.
 
-## 22. Explicit non-goals
+## 21. Explicit non-goals
 
 MVP does not add:
 
@@ -788,6 +691,7 @@ MVP does not add:
 - password authentication;
 - an unapproved transactional email vendor;
 - unapproved social auth providers;
+- unapproved Kie image model;
 - Vitest/Jest as project test runner;
 - Playwright/Cypress until browser E2E tool decision is explicitly made;
 - separate admin backend;

@@ -17,7 +17,7 @@ AIDIX не является CAD/BIM-системой и не заменяет р
 
 Первый релиз сфокусирован на одном завершённом сценарии:
 
-1. Пользователь регистрируется и получает **3 бесплатные генерации** (`3 promotional credits`).
+1. Пользователь входит по одноразовому коду, отправленному на email, и получает **3 бесплатные генерации** (`3 promotional credits`) при первом eligible account.
 2. Создаёт проект комнаты.
 3. Загружает фотографию помещения.
 4. Выбирает тип комнаты и стиль.
@@ -38,14 +38,14 @@ AIDIX не является CAD/BIM-системой и не заменяет р
 | --- | --- |
 | [Product](docs/product.md) | Ценность продукта, scope, пользовательские сценарии, генерационные режимы и ограничения. |
 | [Domain](docs/domain.md) | Сущности, lifecycle, invariants, credits и ownership. |
-| [Implementation](docs/implementation.md) | Архитектура, стек, FSD frontend, AI integration, storage, jobs, security и deployment. |
-| [UI](docs/ui.md) | IA, landing, generator, result flow, states, responsive semantics и SEO surface. |
-| [Billing](docs/billing.md) | Credit ledger, пакеты, Robokassa integration, payment lifecycle и refunds. |
-| [Testing](docs/testing.md) | Quality gates, contract tests, architecture checks, image-generation fixtures и release verification. |
+| [Implementation](docs/implementation.md) | Архитектура, стек, FSD frontend, auth, AI integration, storage, jobs, security и deployment. |
+| [UI](docs/ui.md) | IA, landing, auth, generator, result flow, states, responsive semantics и SEO surface. |
+| [Billing](docs/billing.md) | Credit ledger, Robokassa integration, payment lifecycle и refunds. |
+| [Testing](docs/testing.md) | Quality gates, Bun tests, contract tests, architecture checks, image-generation fixtures и release verification. |
 | [Roadmap](docs/roadmap.md) | Порядок реализации, acceptance gates и future modules. |
 | [Research](docs/research.md) | Ненормативный срез конкурентов и внешних технологий на дату исследования. |
 | [Progress](docs/progress.md) | Ненормативный handoff между LLM/coding sessions. |
-| [AGENTS.md](AGENTS.md) | Правила разработки LLM, Specification Lock, FSD boundaries и обязательный workflow. |
+| [AGENTS.md](AGENTS.md) | Правила разработки LLM, Specification Lock, Decision hygiene, FSD boundaries и обязательный workflow. |
 
 `docs/research.md` и `docs/progress.md` не задают product requirements и не могут переопределять canonical documents.
 
@@ -69,6 +69,7 @@ src/
       storage/   S3-compatible object storage
       ai/kie/    Kie.ai adapter
       payments/  Robokassa adapter behind payment port
+      email/     provider-neutral OTP delivery boundary; production vendor TBD
 worker/
   generation worker из той же codebase
 prisma/
@@ -83,18 +84,20 @@ FSD dependency direction: `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_enti
 - Next.js 16+ App Router + TypeScript;
 - React + **Tailwind CSS + shadcn/ui как единственный UI/styling layer**;
 - strict Feature-Sliced Design для frontend-части Next.js;
-- Bun для install/scripts/runtime tooling;
-- PostgreSQL как единственная обязательная база данных;
+- **Bun как runtime, package manager, script runner и test runner**;
+- внешний PostgreSQL, подключаемый через `DATABASE_URL`; PostgreSQL container в Compose не поднимается;
 - Prisma ORM и migrations;
-- Better Auth для account/session;
+- Better Auth + Email OTP для passwordless входа; production email provider — `TBD`;
+- social auth — future capability, конкретные providers `TBD`;
 - внешний S3-compatible object storage для source/reference/generated images, подключаемый только через ENV и не поднимаемый Compose;
 - **Kie.ai** как единственный image-generation API gateway MVP; initial model — `gpt-image-2-5-sunburst-image-to-image`;
 - асинхронный Kie flow: `createTask -> callback/reconciliation -> copy result to AIDIX S3`;
 - **Robokassa** как production payment provider MVP;
-- Docker Compose как обязательный способ запуска всего application stack в local/prod;
-- Caddy как reverse proxy/TLS в production single-host topology.
+- Docker Compose как обязательный способ запуска AIDIX application processes (`web`, `worker`, `migrate`); внешний PostgreSQL и S3 остаются вне Compose;
+- отдельный reverse proxy/Caddy в repository stack не используется;
+- unit/integration/architecture tests выполняются через `bun:test`; browser E2E tool пока `TBD`, Playwright не является зависимостью M0.
 
-Redis, Kubernetes, отдельный API service, message broker, локальный MinIO/S3, прямые OpenAI/fal.ai/Replicate integrations и собственный GPU inference в MVP не используются.
+Redis, Kubernetes, отдельный API service, message broker, локальные PostgreSQL/MinIO containers, прямые OpenAI/fal.ai/Replicate integrations и собственный GPU inference в MVP не используются.
 
 ## Главный продуктовый invariant
 

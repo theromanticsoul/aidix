@@ -232,6 +232,85 @@ External Kie/Robokassa/SMTP calls в обычном CI не выполняютс
 
 Browser E2E framework пока `TBD`; Playwright не является dependency M0.
 
+## Git / commit discipline
+
+На текущем solo-development этапе canonical workflow — **direct commits to `main`**. Feature branches и pull requests не являются обязательными и не должны создаваться только ради процесса.
+
+Branch/PR workflow вводится отдельным owner decision, когда появляется хотя бы один из факторов:
+
+- второй разработчик или внешний contributor;
+- обязательный code review;
+- protected-branch/required-CI policy;
+- параллельная работа над несколькими конфликтующими задачами;
+- release process, где изоляция изменений реально снижает риск.
+
+До этого момента агент/разработчик коммитит напрямую в `main` и соблюдает следующие правила.
+
+### Commit format
+
+Использовать Conventional Commits-style prefixes:
+
+```text
+feat:      новая пользовательская/системная возможность
+fix:       исправление дефекта
+refactor:  изменение структуры без смены поведения
+test:      тесты без product behavior change
+docs:      документация
+chore:     housekeeping/tooling без production behavior change
+build:     build/dependency/container changes
+ci:        CI configuration
+```
+
+Commit message пишется на английском, кратко и предметно, например:
+
+```text
+feat: add email otp authentication
+fix: prevent duplicate promo credit grant
+refactor: isolate smtp transport adapter
+docs: define direct-to-main commit discipline
+```
+
+Не использовать бессодержательные сообщения вроде `update`, `changes`, `fix stuff`, `wip`, `misc`.
+
+### Atomicity
+
+- Один commit = одна логически завершённая change.
+- Не смешивать несвязанные feature/fix/refactor/formatting изменения в одном commit.
+- Не создавать искусственно много микрокоммитов для одной неделимой change только ради количества.
+- Если semantic owner decision требует docs update + implementation, docs должны быть обновлены до implementation; они могут быть отдельным предшествующим commit или частью того же логически атомарного change, если история остаётся понятной.
+- Prisma migration коммитится вместе с соответствующим `schema.prisma` change и кодом, который от неё зависит.
+- `bun.lock`/lockfile коммитится вместе с dependency change.
+- Generated files коммитятся только если repository contract действительно требует их version control.
+
+### Safety
+
+Никогда не коммитить:
+
+- `.env`/local secret files;
+- API keys, SMTP credentials, database passwords, auth/session secrets;
+- production/user data dumps;
+- temporary generated assets/logs;
+- editor/OS artifacts, если они не являются осознанной частью repository contract.
+
+Не использовать `--no-verify` для обхода установленных hooks/checks. Не переписывать уже опубликованную историю `main` через force-push/rebase без explicit owner instruction.
+
+### Verification before commit/handoff
+
+Для маленького commit допускается запуск только релевантных быстрых проверок перед самим commit, чтобы сохранить быстрый цикл разработки. Но change не считается завершённой, если соответствующие проверки падают.
+
+Перед завершением task/handoff обязательно:
+
+```text
+bun run lint
+bun run typecheck
+bun test
+bun run build
+```
+
+Если change затрагивает migration, external integration contract или architecture boundaries, дополнительно запускается релевантный integration/architecture suite из `docs/testing.md`.
+
+`docs/progress.md` обновляется при завершении текущей milestone/task или когда меняются blocker/next action; не делать отдельный progress commit после каждого маленького технического commit без полезного handoff-смысла.
+
 ## Progress handoff
 
 `docs/progress.md` хранит current milestone, одну active task максимум, verification, blockers и next action. Progress не меняет requirements.

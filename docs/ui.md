@@ -26,7 +26,7 @@ Authenticated:
 
 MVP may collapse `/pricing` and `/examples` into landing sections initially, but canonical content must remain addressable and reusable.
 
-`/login` and `/register` may share the same passwordless Email OTP surface. The product must not introduce a password form in MVP.
+`/login` and `/register` may share the same passwordless Email OTP surface. Password form в MVP не существует.
 
 ## 2. Landing page
 
@@ -45,9 +45,9 @@ Hero immediately answers:
 
 Primary CTA: `Попробовать бесплатно`.
 
-Supporting promo copy should say `3 бесплатные генерации`, not `первая генерация бесплатно`.
+Supporting promo copy: `3 бесплатные генерации`.
 
-Do not claim exact construction accuracy or guaranteed 30-second latency before measured production data exists.
+Do not claim exact construction accuracy or guaranteed latency before measured production data exists.
 
 ### Required sections
 
@@ -59,11 +59,9 @@ Do not claim exact construction accuracy or guaranteed 30-second latency before 
 6. How to make a good source photo.
 7. How to get a more realistic result.
 8. Limitations.
-9. Pricing/credit surface. Concrete paid prices/packages remain `TBD` until approved.
+9. Pricing/credit surface without invented prices.
 10. FAQ.
 11. Final CTA.
-
-This preserves the boss-provided SEO/product structure while removing claims for unimplemented plan/3D features.
 
 ## 3. Authentication UX
 
@@ -72,29 +70,57 @@ MVP auth is passwordless Email OTP.
 Canonical flow:
 
 1. user enters email;
-2. UI submits request to send one-time code;
-3. UI moves to code-entry state for the same email;
-4. user enters received code;
-5. successful verification creates/opens the account session;
-6. first eligible account receives `3` promotional credits exactly once;
-7. redirect to the intended authenticated destination or `/app`.
+2. UI requests one-time code;
+3. backend renders email with React Email and sends it through configured SMTP;
+4. UI moves to code-entry state;
+5. user enters received code;
+6. successful verification creates/opens session;
+7. first eligible account receives `3` promotional credits exactly once;
+8. redirect to intended authenticated destination or `/app`.
 
 Requirements:
 
-- no password field, password creation, password reset or password hints in MVP;
-- resend-code action exists with disabled/loading/cooldown state driven by server/auth behavior;
-- invalid/expired code errors are user-friendly and never expose internal Better Auth/provider errors;
-- changing email returns user to the email-entry state;
-- UI should not reveal whether an email already had an account before OTP verification in a way that creates account-enumeration risk;
-- exact OTP length/expiry/cooldown must not be hardcoded into product copy unless explicitly configured and documented;
-- transactional email provider branding is not shown unless separately approved;
-- social-login buttons are not shown until concrete providers are selected and implemented.
+- no password field/password reset;
+- resend-code action with loading/disabled/cooldown state driven by server/auth behavior;
+- invalid/expired code errors user-friendly;
+- changing email returns to email-entry state;
+- avoid account enumeration;
+- exact OTP length/expiry/cooldown not hardcoded into copy unless configured/documented;
+- no SMTP/vendor branding in UI;
+- social-login buttons absent until providers selected.
 
-Production email-delivery provider is `TBD` and is not a UI decision.
+## 4. Forms implementation
 
-## 4. SEO landing copy structure
+All interactive product forms use **Formisch + Valibot**.
 
-Required headings/topics:
+Canonical UI pattern:
+
+```text
+Valibot schema
+  -> Formisch useForm/Form/Field
+  -> shadcn controls
+  -> server submit
+  -> Valibot server validation
+```
+
+Rules:
+
+- Formisch owns client-side form state, field state and validation integration;
+- Valibot schema is source of truth for form structure/validation;
+- React Hook Form/Formik are not used;
+- shadcn primitives provide visual controls only;
+- do not use shadcn form abstractions that introduce React Hook Form;
+- validation errors render close to fields and include accessible associations;
+- submit/loading/disabled/error states come from Formisch/application state, not duplicated ad-hoc state;
+- client validation does not replace server-side validation;
+- form schema and form UI live in the correct FSD slice, usually `4_features/<feature>`;
+- truly generic controls can live in `6_shared/ui`, but product validation semantics do not.
+
+This applies to OTP login, project creation/editing, generator configuration and billing/payment forms.
+
+## 5. SEO landing copy structure
+
+Required topics:
 
 - нейросеть для дизайна интерьера;
 - дизайн комнаты по фотографии;
@@ -103,9 +129,9 @@ Required headings/topics:
 - AI limitations;
 - FAQ.
 
-Do not create dozens of thin SEO pages before core landing ranks/works. Future room-specific pages may reuse the same generator with prefilled room type but need unique useful content.
+Do not create thin SEO pages before the core landing works.
 
-## 5. Dashboard `/app`
+## 6. Dashboard `/app`
 
 Shows:
 
@@ -113,13 +139,11 @@ Shows:
 - `New project` CTA;
 - recent projects;
 - recent generation status if any;
-- empty state with example and first action.
+- empty state with first action.
 
-For a newly eligible account, the initial balance is `3` promotional credits and UI may explain it as `3 бесплатные генерации`.
+New eligible account starts with `3` promotional credits.
 
-No analytics dashboard in MVP.
-
-## 6. Project screen
+## 7. Project screen
 
 Header:
 
@@ -132,92 +156,67 @@ Content:
 
 - source images;
 - generations chronological grid;
-- statuses: queued/running/succeeded/partial/failed;
+- statuses queued/running/succeeded/partial/failed;
 - delete/archive project action separated from generation actions.
 
-## 7. Generator
+## 8. Generator
 
-Prefer one page with progressive sections, not a wizard requiring a route per step.
+Prefer one page with progressive sections, not a route-per-step wizard.
 
-### Section A — Source photo
+### Source photo
 
-Dropzone + preview.
+Dropzone + preview. JPEG/PNG/WebP, max 15 MB.
 
-Accept: JPEG/PNG/WebP, max 15 MB.
+Show dimensions, replace/remove action and photo-quality guidance.
 
-After upload show:
+### Room type
 
-- dimensions;
-- replace/remove;
-- photo-quality guidance.
+Required card/select catalog.
 
-### Section B — Room type
+### Style
 
-Card/select catalog. Required.
+Required visual cards with selected state.
 
-### Section C — Style
+### References
 
-Visual cards with preview, title and selected state. Required.
-
-### Section D — References
-
-Optional, max 3.
-
-Each added image requires role:
+Optional, max 3. Each reference has role:
 
 - `Стиль / атмосфера`;
 - `Мебель / предмет`;
 - `Материал / отделка`.
 
-Explain: reference is guidance, not guaranteed exact copy.
+### Wishes
 
-### Section E — Wishes
+Textarea plus optional `Не менять` field.
 
-Textarea up to product-defined limit (target 1000–2000 chars).
+### Variants
 
-Placeholder examples:
+Selector `1 / 2 / 4`.
 
-- «Сохранить паркет и окно, заменить мебель»;
-- «Светлые стены, тёплый дуб, без ярких цветов».
+Always show exact credit cost before submit, e.g. `Сгенерировать 2 варианта · 2 кредита`.
 
-Separate optional `Не менять` field is preferred over asking user to encode everything in one prompt.
-
-### Section F — Variants
-
-Selector 1 / 2 / 4.
-
-Always display exact credit cost before submit.
-
-Button:
-
-`Сгенерировать 2 варианта · 2 кредита`
-
-Disabled when requirements missing or insufficient balance.
-
-## 8. Generation progress
+## 9. Generation progress
 
 After submit navigate immediately to Generation screen.
-
-Do not keep browser request open waiting for provider.
 
 States:
 
 - queued: «Готовим задачу»;
 - running: per-variant skeleton/progress copy;
-- partial: show successes immediately plus retry/failure explanation;
-- failed: clear reason + refunded credits if applicable.
+- partial: show successes + failure explanation;
+- failed: clear reason + refund copy when applicable.
 
-Avoid fake percentage unless provider supplies meaningful progress. Use indeterminate progress + elapsed time.
+No fake percentage unless provider supplies meaningful progress.
 
-## 9. Result screen
+## 10. Result screen
 
-Primary layout desktop:
+Desktop:
 
-- source photo and selected result compare;
-- thumbnails of variants;
+- source/result compare;
+- variant thumbnails;
 - selected result actions.
 
-Actions MVP:
+Actions:
 
 - download;
 - favorite;
@@ -225,14 +224,14 @@ Actions MVP:
 - use this result as source;
 - back to project.
 
-Before/after slider must remain keyboard accessible; provide static toggle fallback on mobile.
+Before/after control keyboard accessible; mobile has static toggle fallback.
 
-## 10. Error UX
+## 11. Error UX
 
-User should distinguish:
+Distinguish:
 
 - invalid/expired OTP;
-- temporary email-delivery problem;
+- SMTP/email delivery problem;
 - invalid file;
 - insufficient credits;
 - generation rejected/unsupported;
@@ -240,50 +239,46 @@ User should distinguish:
 - partial generation failure;
 - payment pending/failed.
 
-Never show raw upstream error strings.
+Never show raw upstream errors.
 
-If refundable generation failure occurred, state explicitly: `Кредит возвращён на баланс`.
+If generation failure refunded: `Кредит возвращён на баланс`.
 
-## 11. Billing UX
+## 12. Billing UX
 
 Billing page:
 
 - current balance;
-- approved purchasable offers/packages when they exist;
-- purchase CTA only for configured catalog entries;
-- credit history condensed;
+- approved purchasable offers when configured;
+- purchase CTA only for configured entries;
+- credit history;
 - payment history.
 
-Paid package names, amounts and prices are currently `TBD`; UI must not ship placeholder commercial values as if they were real.
+Paid package names/amounts/prices remain `TBD`; placeholder commercial values must not ship.
 
-## 12. Privacy UX
+## 13. Privacy UX
 
-All projects private by default.
+All projects private by default. Public gallery not in MVP.
 
-No «community gallery» checkbox hidden in generator. Publishing is future explicit opt-in feature.
+Account deletion explains project/image deletion and any separately defined financial retention.
 
-Account deletion warns about project/image deletion and separately explains financial record retention where legally required.
+## 14. Responsive
 
-## 13. Responsive
+Generator/result work from 360px.
 
-Generator and result flows must work from 360px width.
+Mobile generator keeps semantic order. Result mobile defaults to one large selected image + source/result toggle, then thumbnails/actions.
 
-Mobile generator order matches desktop semantic order. Do not use horizontal carousels for required form controls if they hide options without clear affordance.
+## 15. Accessibility
 
-Result screen on mobile defaults to one large selected image + source/result toggle, then thumbnails/actions.
-
-## 14. Accessibility
-
-- native labels for upload/form controls;
+- native labels;
 - visible focus;
-- OTP fields support paste and keyboard flow;
-- keyboard selectable style cards;
-- alt text for static marketing examples;
-- generated private images use contextual alt such as `Сгенерированный вариант 2`;
-- status changes announced via live region where appropriate;
-- color is never the only error/status signal.
+- OTP supports paste/keyboard flow;
+- Formisch errors connected to fields with accessible descriptions;
+- keyboard-selectable style cards;
+- alt text for marketing/generated images;
+- live regions for meaningful status changes;
+- color never sole error/status signal.
 
-## 15. FAQ canonical topics
+## 16. FAQ canonical topics
 
 - Можно ли попробовать бесплатно?
 - Работает ли сервис по фотографии?
@@ -294,48 +289,36 @@ Result screen on mobile defaults to one large selected image + source/result tog
 - Можно ли загрузить мебель или материал как референс?
 - Что происходит с загруженными фотографиями?
 
-Canonical free-answer semantics: новый eligible account получает `3` promotional credits, то есть три single-variant бесплатные генерации либо эквивалентный расход на multi-variant request.
+Free-answer semantics: новый eligible account получает `3` promotional credits.
 
-Floor-plan FAQ appears only after `PLAN_CONCEPT` exists in production.
+Floor-plan FAQ only after `PLAN_CONCEPT` is production-ready.
 
-## 16. UI implementation rules
+## 17. UI implementation rules
 
-UI AIDIX реализуется строго через **Tailwind CSS + shadcn/ui**.
+UI strictly **Tailwind CSS + shadcn/ui**.
 
-Canonical rules:
+- source shadcn primitives in `src/6_shared/ui`;
+- product components built compositionally from shadcn + Tailwind;
+- semantic tokens for colors/borders/radii/states;
+- `globals.css` limited to Tailwind/shadcn theme/base;
+- no CSS Modules/Sass/styled-components/Emotion;
+- no MUI/Ant/Chakra/Mantine/Bootstrap;
+- responsive/loading/error states via Tailwind + component variants.
 
-- shadcn/ui primitives являются базовыми interactive components;
-- source shadcn primitives располагаются в `src/6_shared/ui`;
-- product components собираются композиционно из shadcn primitives и Tailwind utilities;
-- цвета, borders, radii, typography и states используют semantic shadcn/Tailwind tokens;
-- `globals.css` ограничен Tailwind imports, shadcn CSS variables/theme и необходимым base layer;
-- page-specific layout/styling не переносится в handwritten global CSS;
-- не использовать CSS Modules, Sass/SCSS, styled-components, Emotion или parallel CSS-in-JS layer;
-- не добавлять MUI, Ant Design, Chakra, Mantine, Bootstrap или другую component library;
-- application code не должен напрямую строить второй primitive layer рядом с shadcn;
-- новые reusable components сначала проверяют, существует ли подходящий shadcn primitive/pattern;
-- responsive, hover/focus/disabled/error/loading states реализуются Tailwind utilities и shadcn variants.
-
-Исключение для дополнительной UI/styling библиотеки требует explicit owner decision и semantic update этого документа до implementation.
-
-## 17. Strict Feature-Sliced Design
-
-Frontend-часть Next.js обязана использовать Feature-Sliced Design.
+## 18. Strict Feature-Sliced Design
 
 Canonical folders:
 
 ```text
 src/
-  app/         Next.js App Router adapters only
-  1_app/       providers/application composition
-  2_pages/     page compositions
-  3_widgets/   reusable large page blocks
-  4_features/  user interactions/use-cases
-  5_entities/  business UI entities
-  6_shared/    shared UI/lib/config
+  app/
+  1_app/
+  2_pages/
+  3_widgets/
+  4_features/
+  5_entities/
+  6_shared/
 ```
-
-Числовые префиксы являются обязательной частью структуры. Они не дают Next.js интерпретировать FSD `pages` layer как legacy Pages Router и визуально фиксируют dependency order.
 
 Import direction:
 
@@ -345,14 +328,12 @@ Import direction:
 
 Rules:
 
-- слой импортирует только нижележащие слои;
-- slices одного слоя не импортируют друг друга;
-- каждый slice предоставляет минимальный explicit public API;
-- wildcard barrel exports запрещены;
-- `src/app` содержит только route/layout/metadata/server-adapter composition и не становится отдельным набором product components;
-- `3_widgets` создаётся только при реальной необходимости;
-- generic root folders `components`, `hooks`, `utils`, `helpers`, `types` запрещены как обход FSD;
-- shadcn primitives и truly generic UI живут в `6_shared`, product semantics — в `features/entities/widgets/pages`;
-- page-specific composition не переносится в `6_shared`.
+- only downward imports;
+- no same-layer slice imports;
+- explicit public API;
+- no root `components/hooks/utils/helpers/types` parallel architecture;
+- `src/app` thin;
+- form logic belongs to feature/page slices, not `shared`;
+- shadcn primitives generic, product semantics not in shared.
 
-Нарушение FSD boundaries считается architecture defect и должно ловиться review/lint/architecture tests.
+FSD violations are architecture defects and must be caught automatically.

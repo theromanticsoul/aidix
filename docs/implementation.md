@@ -10,7 +10,7 @@ Browser
     -> Next.js web (Docker)
        -> PostgreSQL (Docker)
        -> external S3-compatible storage (ENV)
-       -> payment provider
+       -> Robokassa payment interface / ResultURL
        -> Kie.ai callback endpoint
     -> worker (Docker, no public port)
        -> PostgreSQL
@@ -25,6 +25,8 @@ migrate (Docker one-shot)
 
 Kie.ai — canonical image-generation gateway AIDIX. В MVP приложение не вызывает OpenAI, fal.ai, Replicate или другие model providers напрямую.
 
+Robokassa — canonical payment provider MVP. Payment/credit domain остаётся отделён от provider-specific signature and redirect semantics.
+
 Frontend-часть Next.js строго следует Feature-Sliced Design. FSD применяется только к frontend composition/UI; server-side application/domain/infrastructure code живёт в отдельной `src/server` boundary и не маскируется под FSD slices.
 
 ## 2. Repository structure
@@ -38,7 +40,11 @@ src/
     api/
       webhooks/
         kie/
-        yookassa/
+      payments/
+        robokassa/
+          result/
+          success/
+          fail/
   1_app/
   2_pages/
   3_widgets/
@@ -60,6 +66,7 @@ src/
         kie/
       storage/
       payments/
+        robokassa/
 worker/
   index.ts
 prisma/
@@ -69,7 +76,7 @@ prisma/
 
 `src/app` — framework-owned Next.js App Router adapter layer. Route/layout files в нём должны быть тонкими: metadata, params, composition и вызов server adapters. Product UI и client behavior не складываются непосредственно в route directories.
 
-`src/server/core` не импортирует Next.js, React, Prisma client, Kie HTTP client implementation, AWS SDK или payment SDK.
+`src/server/core` не импортирует Next.js, React, Prisma client, Kie HTTP client implementation, AWS SDK или Robokassa-specific implementation.
 
 ### Strict FSD frontend
 
@@ -99,7 +106,7 @@ Import rules:
 - внутри slice использовать relative imports, между slices — absolute aliases;
 - root-level generic folders `components`, `hooks`, `utils`, `helpers`, `types` запрещены как обход FSD;
 - `src/app` не становится альтернативным feature/page layer;
-- React/FSD code не импортирует Prisma, AWS SDK, Kie HTTP adapter, payment SDK или `src/server/infrastructure` напрямую;
+- React/FSD code не импортирует Prisma, AWS SDK, Kie/Robokassa infrastructure adapters или `src/server/infrastructure` напрямую;
 - server modules не импортируют React/FSD UI.
 
 FSD boundaries являются architecture requirement и должны проверяться lint/architecture tests, а не только code review.
@@ -122,6 +129,7 @@ Canonical stack:
 - AWS SDK v3 for S3-compatible storage;
 - `sharp` for image validation/normalization;
 - Zod for boundary validation;
+- Robokassa payment integration via signed payment interface and ResultURL;
 - Vitest for unit/integration tests;
 - Playwright for critical browser flows;
 - Docker + Docker Compose for local, test-support and initial production deployment;
@@ -480,21 +488,104 @@ Signed user-read URL TTL target: 5–15 minutes.
 
 Image endpoints send appropriate `Content-Disposition` for downloads and `Cache-Control: private`.
 
-## 16. Payments
+## 16. Robokassa payments
 
-Payment port:
+Robokassa is the production payment provider for MVP. Domain code must not know signature formulas, merchant credentials or Robokassa URL/query shapes.
+
+### Internal payment port
 
 ```ts
+type CheckoutInput = {
+  paymentId: string;
+  invoiceId: number;
+  amountRub: string;
+  description: string;
+};
+
+type CheckoutResult = {
+  url: string;
+  method: 'GET' | 'POST';
+  fields: Record<string, string>;
+};
+
+type VerifiedPaymentNotification = {
+  invoiceId: number;
+  amountRub: string;
+};
+
 interface PaymentProvider {
-  createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;
-  getPayment(providerPaymentId: string): Promise<ProviderPayment>;
-  verifyWebhook(request: RawWebhookRequest): Promise<VerifiedPaymentEvent>;
+  createCheckout(input: CheckoutInput): Promise<CheckoutResult>;
+  verifyResultNotification(input: RawPaymentNotification): Promise<VerifiedPaymentNotification>;
 }
 ```
 
-Initial production adapter: ЮKassa.
+Adapter: `src/server/infrastructure/payments/robokassa`.
 
-Business model remains provider-neutral so another provider can be added without changing credit ledger semantics.
+### Checkout
+
+Robokassa payment request includes at minimum:
+
+```text
+MerchantLogin
+OutSum
+InvId
+Description
+SignatureValue
+```
+
+`InvId` maps to a stable AIDIX internal payment/invoice identity. `OutSum` is generated from the canonical package price stored by AIDIX. Checkout `SignatureValue` is calculated inside the adapter using Robokassa Password #1 and the hash algorithm configured for the merchant account.
+
+AIDIX must not trust amount/package data coming back from the browser. Server constructs checkout from persisted `Payment` and package snapshot.
+
+### ResultURL
+
+Canonical server notification route:
+
+```text
+POST /api/payments/robokassa/result
+```
+
+GET support may be enabled only if merchant technical settings intentionally use GET. Production configuration should use one explicitly documented method and tests must match it.
+
+ResultURL processing:
+
+1. parse `OutSum`, `InvId`, `SignatureValue` and any returned `Shp_*` parameters;
+2. load internal `Payment` by stable invoice id;
+3. reconstruct Robokassa ResultURL signature with Password #2 and configured hash algorithm;
+4. reject mismatched signature;
+5. compare normalized received `OutSum` with persisted expected amount;
+6. idempotently transition eligible `Payment` to `SUCCEEDED`;
+7. append exactly one `PACKAGE_PURCHASE` ledger entry;
+8. return plain text `OK{InvId}`.
+
+Repeated valid ResultURL notifications for an already succeeded payment must not grant credits twice and should still return the expected successful acknowledgement.
+
+### SuccessURL / FailURL
+
+User-facing routes:
+
+```text
+/api/payments/robokassa/success
+/api/payments/robokassa/fail
+```
+
+They are navigation/UX surfaces only. They may redirect to `/app/billing?payment=<id>` or equivalent, but they never mutate payment to `SUCCEEDED` and never grant credits.
+
+### Credentials and secrets
+
+Robokassa credentials are server-only:
+
+```text
+ROBOKASSA_MERCHANT_LOGIN
+ROBOKASSA_PASSWORD_1
+ROBOKASSA_PASSWORD_2
+ROBOKASSA_HASH_ALGORITHM
+ROBOKASSA_IS_TEST
+```
+
+No Robokassa secret uses `NEXT_PUBLIC_*`.
+
+Exact receipt/fiscalization parameters are **TBD until owner/legal/merchant configuration is explicitly decided**. Implementation must not invent VAT/tax/receipt semantics.
 
 ## 17. Docker deployment
 
@@ -538,7 +629,7 @@ Runtime containers:
 3. `web` and `worker` start;
 4. Caddy routes public traffic to `web`.
 
-Worker/application readiness must not depend on Kie being online at boot.
+Worker/application readiness must not depend on Kie or Robokassa being online at boot.
 
 ## 18. Health
 
@@ -547,20 +638,20 @@ Worker/application readiness must not depend on Kie being online at boot.
 - optional S3 diagnostic is separate from liveness and must not make web process unavailable because of a transient external storage outage;
 - worker heartbeat table/metric indicates last loop/claimed/reconciled job.
 
-Kie.ai is not part of `/ready`; upstream outage should not make marketing/account pages unavailable.
+Kie.ai and Robokassa are not part of `/ready`; upstream outage should not make marketing/account pages unavailable.
 
 ## 19. Observability
 
-Structured JSON logs with request/generation/provider task ids.
+Structured JSON logs with request/generation/provider task/payment ids.
 
 Never log:
 
 - passwords/session tokens;
 - Kie API key or webhook HMAC key;
+- Robokassa Password #1 / Password #2;
 - image base64/binary payloads;
 - full signed S3 URLs;
 - temporary provider result URLs;
-- payment secrets;
 - raw provider payload if it may contain images/personal content.
 
 Metrics MVP:
@@ -574,6 +665,8 @@ Metrics MVP:
 - provider error class;
 - S3 error count;
 - payment success/failure;
+- Robokassa ResultURL signature failures;
+- duplicate payment notification count;
 - credit refund count.
 
 ## 20. Environment
@@ -610,12 +703,17 @@ KIE_RECONCILE_INTERVAL_SECONDS=30
 GENERATION_WORKER_CONCURRENCY=2
 GENERATION_RECONCILE_CONCURRENCY=2
 
-# payments
-YOOKASSA_SHOP_ID
-YOOKASSA_SECRET_KEY
+# Robokassa
+ROBOKASSA_MERCHANT_LOGIN
+ROBOKASSA_PASSWORD_1
+ROBOKASSA_PASSWORD_2
+ROBOKASSA_HASH_ALGORITHM
+ROBOKASSA_IS_TEST=false
 ```
 
 `KIE_CALLBACK_URL` normally derives from `APP_URL + /api/webhooks/kie`; separate override is allowed only for deployment routing needs.
+
+Robokassa `ResultURL`, `SuccessURL` and `FailURL` are configured in the Robokassa merchant technical settings to point at the public AIDIX routes documented above.
 
 Secrets never use `NEXT_PUBLIC_*`.
 
@@ -640,6 +738,8 @@ docker compose exec web bun run build
 ```
 
 An external S3 test/dev bucket must be configured in `.env`. The repository must not silently create or fall back to local filesystem storage/MinIO when S3 variables are missing.
+
+Robokassa test mode is used for external payment integration testing; normal CI uses deterministic fixtures/fake adapter and never depends on live provider availability.
 
 ## 22. Explicit non-goals
 

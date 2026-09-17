@@ -50,11 +50,13 @@ MVP authentication — **passwordless email OTP** через Better Auth:
 
 1. пользователь вводит email;
 2. система отправляет одноразовый код на этот адрес;
-3. пользователь вводит код;
-4. успешная проверка кода создаёт/подтверждает account при первом входе либо открывает существующую session;
-5. password authentication в MVP не используется.
+3. письмо формируется через React Email;
+4. доставка выполняется через SMTP, настроенный через environment variables;
+5. пользователь вводит код;
+6. успешная проверка создаёт/подтверждает account при первом входе либо открывает существующую session;
+7. password authentication в MVP не используется.
 
-Конкретный transactional email provider для доставки OTP — `TBD` и должен быть отдельно утверждён владельцем продукта. Product code не должен привязывать auth domain к конкретному email vendor.
+SMTP provider/vendor не является product decision: deployment предоставляет SMTP host/credentials через ENV. Конкретная SMTP transport library является replaceable implementation detail и не должна менять auth semantics.
 
 Future auth:
 
@@ -161,8 +163,8 @@ UI рекомендует:
 
 Основной provider input:
 
-1. normalized source photo — first image;
-2. references — subsequent images;
+1. normalized source photo;
+2. references;
 3. structured prompt.
 
 Prompt обязан явно требовать сохранить perspective, room envelope и immutable elements, но продукт не утверждает, что provider выполнит это идеально.

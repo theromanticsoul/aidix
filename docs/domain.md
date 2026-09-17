@@ -100,6 +100,8 @@ Initial canonical value: `1 credit / variant`.
 
 A request for 4 variants costs 4 credits.
 
+A newly eligible account receives one idempotent signup `PROMO_GRANT` with `amountSigned = +3`. Product/UI presents this balance as **3 бесплатные генерации**. It is one business grant of three credits, not three separately repeatable grant operations.
+
 At creation:
 
 1. calculate cost;
@@ -138,7 +140,7 @@ Rules:
 - balance = sum all ledger amounts for user;
 - cached balance may exist for performance but must be transactionally consistent or rebuildable.
 
-Promotional signup grant unique by `(userId, PROMO_SIGNUP_V1)`.
+Promotional signup grant unique by `(userId, PROMO_SIGNUP_V1)` and has canonical amount `+3` credits.
 
 ## 8. Payment lifecycle
 

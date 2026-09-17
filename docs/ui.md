@@ -26,6 +26,8 @@ Authenticated:
 
 MVP may collapse `/pricing` and `/examples` into landing sections initially, but canonical content must remain addressable and reusable.
 
+`/login` and `/register` may share the same passwordless Email OTP surface. The product must not introduce a password form in MVP.
+
 ## 2. Landing page
 
 ### Hero
@@ -39,7 +41,7 @@ Hero immediately answers:
 - что делает сервис;
 - нужен ли photo;
 - сколько шагов;
-- что пользователь получает **3 бесплатные генерации** после регистрации.
+- что пользователь получает **3 бесплатные генерации** после первого подтверждённого входа.
 
 Primary CTA: `Попробовать бесплатно`.
 
@@ -57,13 +59,40 @@ Do not claim exact construction accuracy or guaranteed 30-second latency before 
 6. How to make a good source photo.
 7. How to get a more realistic result.
 8. Limitations.
-9. Pricing/credit packages.
+9. Pricing/credit surface. Concrete paid prices/packages remain `TBD` until approved.
 10. FAQ.
 11. Final CTA.
 
 This preserves the boss-provided SEO/product structure while removing claims for unimplemented plan/3D features.
 
-## 3. SEO landing copy structure
+## 3. Authentication UX
+
+MVP auth is passwordless Email OTP.
+
+Canonical flow:
+
+1. user enters email;
+2. UI submits request to send one-time code;
+3. UI moves to code-entry state for the same email;
+4. user enters received code;
+5. successful verification creates/opens the account session;
+6. first eligible account receives `3` promotional credits exactly once;
+7. redirect to the intended authenticated destination or `/app`.
+
+Requirements:
+
+- no password field, password creation, password reset or password hints in MVP;
+- resend-code action exists with disabled/loading/cooldown state driven by server/auth behavior;
+- invalid/expired code errors are user-friendly and never expose internal Better Auth/provider errors;
+- changing email returns user to the email-entry state;
+- UI should not reveal whether an email already had an account before OTP verification in a way that creates account-enumeration risk;
+- exact OTP length/expiry/cooldown must not be hardcoded into product copy unless explicitly configured and documented;
+- transactional email provider branding is not shown unless separately approved;
+- social-login buttons are not shown until concrete providers are selected and implemented.
+
+Production email-delivery provider is `TBD` and is not a UI decision.
+
+## 4. SEO landing copy structure
 
 Required headings/topics:
 
@@ -76,7 +105,7 @@ Required headings/topics:
 
 Do not create dozens of thin SEO pages before core landing ranks/works. Future room-specific pages may reuse the same generator with prefilled room type but need unique useful content.
 
-## 4. Dashboard `/app`
+## 5. Dashboard `/app`
 
 Shows:
 
@@ -90,7 +119,7 @@ For a newly eligible account, the initial balance is `3` promotional credits and
 
 No analytics dashboard in MVP.
 
-## 5. Project screen
+## 6. Project screen
 
 Header:
 
@@ -106,7 +135,7 @@ Content:
 - statuses: queued/running/succeeded/partial/failed;
 - delete/archive project action separated from generation actions.
 
-## 6. Generator
+## 7. Generator
 
 Prefer one page with progressive sections, not a wizard requiring a route per step.
 
@@ -165,7 +194,7 @@ Button:
 
 Disabled when requirements missing or insufficient balance.
 
-## 7. Generation progress
+## 8. Generation progress
 
 After submit navigate immediately to Generation screen.
 
@@ -180,7 +209,7 @@ States:
 
 Avoid fake percentage unless provider supplies meaningful progress. Use indeterminate progress + elapsed time.
 
-## 8. Result screen
+## 9. Result screen
 
 Primary layout desktop:
 
@@ -198,10 +227,12 @@ Actions MVP:
 
 Before/after slider must remain keyboard accessible; provide static toggle fallback on mobile.
 
-## 9. Error UX
+## 10. Error UX
 
 User should distinguish:
 
+- invalid/expired OTP;
+- temporary email-delivery problem;
 - invalid file;
 - insufficient credits;
 - generation rejected/unsupported;
@@ -211,23 +242,21 @@ User should distinguish:
 
 Never show raw upstream error strings.
 
-If refundable failure occurred, state explicitly: `Кредит возвращён на баланс`.
+If refundable generation failure occurred, state explicitly: `Кредит возвращён на баланс`.
 
-## 10. Billing UX
+## 11. Billing UX
 
 Billing page:
 
 - current balance;
-- available packages;
-- purchase CTA;
+- approved purchasable offers/packages when they exist;
+- purchase CTA only for configured catalog entries;
 - credit history condensed;
 - payment history.
 
-Package card shows total credits and effective price per credit.
+Paid package names, amounts and prices are currently `TBD`; UI must not ship placeholder commercial values as if they were real.
 
-No subscription/autorenewal copy in MVP if billing uses one-time packages.
-
-## 11. Privacy UX
+## 12. Privacy UX
 
 All projects private by default.
 
@@ -235,7 +264,7 @@ No «community gallery» checkbox hidden in generator. Publishing is future expl
 
 Account deletion warns about project/image deletion and separately explains financial record retention where legally required.
 
-## 12. Responsive
+## 13. Responsive
 
 Generator and result flows must work from 360px width.
 
@@ -243,17 +272,18 @@ Mobile generator order matches desktop semantic order. Do not use horizontal car
 
 Result screen on mobile defaults to one large selected image + source/result toggle, then thumbnails/actions.
 
-## 13. Accessibility
+## 14. Accessibility
 
 - native labels for upload/form controls;
 - visible focus;
+- OTP fields support paste and keyboard flow;
 - keyboard selectable style cards;
 - alt text for static marketing examples;
 - generated private images use contextual alt such as `Сгенерированный вариант 2`;
 - status changes announced via live region where appropriate;
 - color is never the only error/status signal.
 
-## 14. FAQ canonical topics
+## 15. FAQ canonical topics
 
 - Можно ли попробовать бесплатно?
 - Работает ли сервис по фотографии?
@@ -268,7 +298,7 @@ Canonical free-answer semantics: новый eligible account получает `3
 
 Floor-plan FAQ appears only after `PLAN_CONCEPT` exists in production.
 
-## 15. UI implementation rules
+## 16. UI implementation rules
 
 UI AIDIX реализуется строго через **Tailwind CSS + shadcn/ui**.
 
@@ -288,7 +318,7 @@ Canonical rules:
 
 Исключение для дополнительной UI/styling библиотеки требует explicit owner decision и semantic update этого документа до implementation.
 
-## 16. Strict Feature-Sliced Design
+## 17. Strict Feature-Sliced Design
 
 Frontend-часть Next.js обязана использовать Feature-Sliced Design.
 

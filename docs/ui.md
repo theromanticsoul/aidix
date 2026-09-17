@@ -39,9 +39,11 @@ Hero immediately answers:
 - что делает сервис;
 - нужен ли photo;
 - сколько шагов;
-- что первая generation бесплатна.
+- что пользователь получает **3 бесплатные генерации** после регистрации.
 
 Primary CTA: `Попробовать бесплатно`.
+
+Supporting promo copy should say `3 бесплатные генерации`, not `первая генерация бесплатно`.
 
 Do not claim exact construction accuracy or guaranteed 30-second latency before measured production data exists.
 
@@ -83,6 +85,8 @@ Shows:
 - recent projects;
 - recent generation status if any;
 - empty state with example and first action.
+
+For a newly eligible account, the initial balance is `3` promotional credits and UI may explain it as `3 бесплатные генерации`.
 
 No analytics dashboard in MVP.
 
@@ -260,6 +264,8 @@ Result screen on mobile defaults to one large selected image + source/result tog
 - Можно ли загрузить мебель или материал как референс?
 - Что происходит с загруженными фотографиями?
 
+Canonical free-answer semantics: новый eligible account получает `3` promotional credits, то есть три single-variant бесплатные генерации либо эквивалентный расход на multi-variant request.
+
 Floor-plan FAQ appears only after `PLAN_CONCEPT` exists in production.
 
 ## 15. UI implementation rules
@@ -269,6 +275,7 @@ UI AIDIX реализуется строго через **Tailwind CSS + shadcn/
 Canonical rules:
 
 - shadcn/ui primitives являются базовыми interactive components;
+- source shadcn primitives располагаются в `src/6_shared/ui`;
 - product components собираются композиционно из shadcn primitives и Tailwind utilities;
 - цвета, borders, radii, typography и states используют semantic shadcn/Tailwind tokens;
 - `globals.css` ограничен Tailwind imports, shadcn CSS variables/theme и необходимым base layer;
@@ -280,3 +287,42 @@ Canonical rules:
 - responsive, hover/focus/disabled/error/loading states реализуются Tailwind utilities и shadcn variants.
 
 Исключение для дополнительной UI/styling библиотеки требует explicit owner decision и semantic update этого документа до implementation.
+
+## 16. Strict Feature-Sliced Design
+
+Frontend-часть Next.js обязана использовать Feature-Sliced Design.
+
+Canonical folders:
+
+```text
+src/
+  app/         Next.js App Router adapters only
+  1_app/       providers/application composition
+  2_pages/     page compositions
+  3_widgets/   reusable large page blocks
+  4_features/  user interactions/use-cases
+  5_entities/  business UI entities
+  6_shared/    shared UI/lib/config
+```
+
+Числовые префиксы являются обязательной частью структуры. Они не дают Next.js интерпретировать FSD `pages` layer как legacy Pages Router и визуально фиксируют dependency order.
+
+Import direction:
+
+```text
+1_app -> 2_pages -> 3_widgets -> 4_features -> 5_entities -> 6_shared
+```
+
+Rules:
+
+- слой импортирует только нижележащие слои;
+- slices одного слоя не импортируют друг друга;
+- каждый slice предоставляет минимальный explicit public API;
+- wildcard barrel exports запрещены;
+- `src/app` содержит только route/layout/metadata/server-adapter composition и не становится отдельным набором product components;
+- `3_widgets` создаётся только при реальной необходимости;
+- generic root folders `components`, `hooks`, `utils`, `helpers`, `types` запрещены как обход FSD;
+- shadcn primitives и truly generic UI живут в `6_shared`, product semantics — в `features/entities/widgets/pages`;
+- page-specific composition не переносится в `6_shared`.
+
+Нарушение FSD boundaries считается architecture defect и должно ловиться review/lint/architecture tests.

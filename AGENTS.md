@@ -10,11 +10,14 @@ AIDIX — AI-сервис визуализации интерьера по фо�
 
 - Сначала законченный photo-redesign MVP, затем editing/upscale/plan/3D.
 - Не добавлять абстракции ради гипотетического масштаба.
-- PostgreSQL — единственная обязательная operational database MVP.
-- Не добавлять Redis, Kafka, Kubernetes, микросервисы или local MinIO/S3 container без explicit product/architecture decision.
+- PostgreSQL — единственная operational database MVP, но AIDIX не поднимает PostgreSQL container: подключение выполняется через `DATABASE_URL`.
+- Не добавлять Redis, Kafka, Kubernetes, микросервисы, local PostgreSQL или local MinIO/S3 container без explicit product/architecture decision.
 - Изображения хранятся во внешнем S3-compatible object storage, а не в PostgreSQL. S3 не поднимается Docker Compose и подключается через ENV.
 - Kie.ai — единственный production image-generation API gateway MVP. Domain model не содержит Kie/model names как business enums; adapter detail остаётся в infrastructure layer.
 - Robokassa — payment provider MVP; payment/credit domain остаётся отделён от provider-specific signature/redirect semantics.
+- Better Auth + Email OTP — auth mechanism MVP. Password auth не используется. Production email-delivery provider остаётся `TBD` до explicit owner decision.
+- Future social auth допускается только после explicit выбора конкретных providers владельцем продукта.
+- Bun — runtime, package manager, script runner и test runner проекта.
 - Credit списывается за продуктовую операцию, а не за upstream token/image accounting.
 - Любая генерация может завершиться ошибкой; credits не должны теряться из-за подтверждённой provider/system failure.
 - Generated image — визуальная концепция, а не точная строительная документация.
@@ -31,12 +34,14 @@ LLM/разработчик **не имеет права додумывать с�
 - hosting/cloud vendor;
 - S3 vendor;
 - email/SMS provider;
+- social auth providers;
 - analytics/observability vendor;
 - prices, package sizes, quotas и скидки;
 - tax/VAT/fiscal receipt semantics;
 - retention periods;
 - legal/privacy promises;
 - auth methods beyond documented set;
+- browser E2E framework/tool;
 - new external SaaS dependency;
 - irreversible schema/product constraints.
 
@@ -87,7 +92,15 @@ owner decision
 
 ## Development shape
 
-AIDIX — один repository и одна product codebase. Весь application stack запускается через Docker Compose; host-process mode не является canonical development path. Единственное исключение — внешний S3-compatible service из ENV.
+AIDIX — один repository и одна product codebase. AIDIX application processes запускаются через Docker Compose; host-process mode не является canonical development path. PostgreSQL и S3 являются внешними dependencies и подключаются через ENV. Отдельный Caddy/reverse-proxy container в repository stack не используется.
+
+Canonical Compose services:
+
+```text
+web
+worker
+migrate
+```
 
 Не создавать отдельный backend только ради «правильной архитектуры». Next.js является BFF/web application; server-side domain/application services располагаются вне React/FSD slices и могут вызываться из Server Actions/Route Handlers/worker.
 
@@ -154,14 +167,25 @@ src/server/
     credits/
     payments/
     storage/
+    email/
   infrastructure/
     db/
     ai/kie/
     storage/
     payments/robokassa/
+    email/
 ```
 
-`server/core` не импортирует Next.js, React, Prisma client, Kie HTTP implementation, AWS SDK или Robokassa-specific implementation.
+`server/core` не импортирует Next.js, React, Prisma client, Kie HTTP implementation, AWS SDK, Robokassa-specific implementation или конкретный email-provider SDK.
+
+## Authentication rules
+
+- MVP auth — passwordless email OTP через Better Auth.
+- Не добавлять password sign-in/sign-up UI или password reset flow в MVP.
+- Production email provider — `TBD`; до выбора vendor использовать provider-neutral email boundary/fake adapter в tests.
+- Никогда не логировать OTP в production logs.
+- Первый eligible подтверждённый account получает один idempotent `PROMO_GRANT` на `+3` credits.
+- Social login является future capability; конкретные providers не выбирать самостоятельно.
 
 ## UI implementation rules
 
@@ -218,24 +242,28 @@ Application формирует structured prompt из:
 - Payment notification processing идемпотентно по internal payment/invoice identity.
 - Successful payment начисляет credits ровно один раз.
 - Generation failure refund создаёт отдельную ledger entry; исходное списание не удаляется.
+- Catalog structure, package sizes и цены остаются `TBD` до explicit owner decision перед M6.
 
 ## Testing discipline
+
+Canonical test runner — `bun:test`. Не добавлять Vitest/Jest без explicit architecture decision.
 
 До handoff обязательны:
 
 ```text
 bun run lint
 bun run typecheck
-bun run test
-bun run test:integration
+bun test
 bun run build
 ```
 
-Если затронут browser flow, добавить/обновить Playwright coverage.
+Integration suites также запускаются через Bun test runner; допустим отдельный script вроде `bun run test:integration`, если он лишь выбирает соответствующий набор `bun test` tests.
+
+Browser E2E framework пока `TBD`. Playwright не является dependency/gate M0. Перед browser E2E implementation должен быть отдельный owner/architecture checkpoint; до этого не добавлять Playwright/Cypress и не обещать cross-browser coverage.
 
 Architecture/lint checks должны ловить запрещённые FSD imports и не позволять постепенно обходить FSD через generic root-level folders.
 
-External Kie/Robokassa calls в обычном CI не выполняются. Использовать contract fixtures/fake adapters; отдельный opt-in smoke test может обращаться к Kie и Robokassa test mode. S3 integration test использует явно настроенный внешний test bucket, а не MinIO container.
+External Kie/Robokassa calls в обычном CI не выполняются. Использовать contract fixtures/fake adapters; отдельный opt-in smoke test может обращаться к Kie и Robokassa test mode. S3 integration test использует явно настроенный внешний test bucket, а не MinIO container. Database integration tests используют явно настроенный внешний test PostgreSQL через ENV, а не PostgreSQL container.
 
 ## Progress handoff
 

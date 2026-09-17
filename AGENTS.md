@@ -2,63 +2,45 @@
 
 ## Продукт
 
-AIDIX — AI-сервис визуализации интерьера по фотографии реального помещения. Продукт оптимизируется под быстрый путь от исходного фото до нескольких визуальных концепций ремонта.
-
-Цель MVP — качественно решить сценарий `photo -> room/style/preferences -> generated variants -> compare/save`, а не построить универсальную архитектурную CAD-платформу.
+AIDIX — AI-сервис визуализации интерьера по фотографии реального помещения. Цель MVP — качественно решить сценарий `photo -> room/style/preferences -> generated variants -> compare/save`, а не построить универсальную CAD/3D-платформу.
 
 ## Принципы
 
 - Сначала законченный photo-redesign MVP, затем editing/upscale/plan/3D.
-- Не добавлять абстракции ради гипотетического масштаба.
-- PostgreSQL — единственная operational database MVP, но AIDIX не поднимает PostgreSQL container: подключение выполняется через `DATABASE_URL`.
-- Не добавлять Redis, Kafka, Kubernetes, микросервисы, local PostgreSQL или local MinIO/S3 container без explicit product/architecture decision.
-- Изображения хранятся во внешнем S3-compatible object storage, а не в PostgreSQL. S3 не поднимается Docker Compose и подключается через ENV.
-- Kie.ai — единственный production image-generation API gateway MVP. Domain model не содержит Kie/model names как business enums; adapter detail остаётся в infrastructure layer.
-- Robokassa — payment provider MVP; payment/credit domain остаётся отделён от provider-specific signature/redirect semantics.
-- Better Auth + Email OTP — auth mechanism MVP. Password auth не используется. Production email-delivery provider остаётся `TBD` до explicit owner decision.
-- Future social auth допускается только после explicit выбора конкретных providers владельцем продукта.
-- Bun — runtime, package manager, script runner и test runner проекта.
-- Credit списывается за продуктовую операцию, а не за upstream token/image accounting.
-- Любая генерация может завершиться ошибкой; credits не должны теряться из-за подтверждённой provider/system failure.
-- Generated image — визуальная концепция, а не точная строительная документация.
-- Frontend-часть Next.js строго следует Feature-Sliced Design. Нарушение FSD boundaries считается architecture defect, а не stylistic preference.
+- PostgreSQL — единственная operational database MVP, но подключается только через `DATABASE_URL`; локальный PostgreSQL container не поднимается.
+- S3-compatible storage внешний и подключается через ENV; MinIO/local S3 не поднимается.
+- Kie.ai — единственный image-generation API gateway MVP; конкретная model остаётся `TBD` до owner decision перед M3.
+- Robokassa — payment provider MVP.
+- Better Auth + Email OTP — auth mechanism MVP. Password auth не используется.
+- React Email — canonical layer для transactional email templates.
+- Email отправляется через SMTP, конфигурация SMTP задаётся ENV. SMTP transport package — replaceable infrastructure detail и не должен протекать в domain/application code.
+- T3 Env + Valibot — canonical ENV validation layer.
+- Formisch + Valibot — canonical frontend form layer.
+- Valibot — canonical schema-validation library проекта; не добавлять Zod без explicit architecture decision.
+- Bun — runtime, package manager, script runner и test runner.
+- Frontend Next.js строго следует Feature-Sliced Design.
+- UI/styling строго Tailwind CSS + shadcn/ui.
+- Credit списывается за продуктовую операцию, а не за upstream provider accounting.
+- Generated image — визуальная концепция, а не строительная документация.
 
 ## Decision hygiene
 
 LLM/разработчик **не имеет права додумывать существенные product/business/infrastructure решения**, которых нет в canonical docs или explicit owner message.
 
-К таким решениям относятся, в частности:
+К таким решениям относятся payment/AI/hosting/S3/analytics vendors, social auth providers, Kie model, prices/packages/discounts, tax/VAT/fiscal semantics, retention, legal/privacy promises, browser E2E framework и необратимые schema/product constraints.
 
-- payment/provider vendor;
-- AI/model/provider vendor;
-- hosting/cloud vendor;
-- S3 vendor;
-- email/SMS provider;
-- social auth providers;
-- analytics/observability vendor;
-- prices, package sizes, quotas и скидки;
-- tax/VAT/fiscal receipt semantics;
-- retention periods;
-- legal/privacy promises;
-- auth methods beyond documented set;
-- browser E2E framework/tool;
-- new external SaaS dependency;
-- irreversible schema/product constraints.
+Если значение не утверждено, canonical representation — `TBD`. Нельзя выбирать «популярный» или знакомый сервис и фиксировать его как принятое решение.
 
-Если такое значение не утверждено, canonical representation — `TBD`. Во время planning/docs task агент должен явно отметить missing decision владельцу. Во время implementation task агент должен остановить affected scope или реализовать provider-neutral boundary без выбора конкретного vendor, если это безопасно и не меняет product semantics.
-
-Нельзя выбирать «наиболее популярный», «логичный» или знакомый сервис и затем закреплять его в документации как принятое решение.
-
-Внешние factual details уже выбранного vendor можно уточнять по его актуальной официальной документации, но это не даёт права самостоятельно выбрать vendor.
+Replaceable implementation package внутри уже утверждённой boundary можно выбрать во время implementation, если это не меняет product semantics и не создаёт vendor lock-in. В частности SMTP transport library может быть выбрана реализацией, но SMTP contract/ENV и React Email templates остаются canonical.
 
 ## Обязательные источники
 
 Перед изменением поведения читать `README.md`, затем документ-владелец:
 
-- `docs/product.md` — scope, features, generation semantics;
+- `docs/product.md` — scope/features/generation semantics;
 - `docs/domain.md` — entities/lifecycle/invariants;
-- `docs/implementation.md` — stack, FSD frontend и technical boundaries;
-- `docs/ui.md` — screens/flows/states/SEO;
+- `docs/implementation.md` — stack/FSD/auth/ENV/forms/infrastructure;
+- `docs/ui.md` — screens/flows/forms/states/SEO;
 - `docs/billing.md` — credits/payments;
 - `docs/testing.md` — gates/verification;
 - `docs/roadmap.md` — execution order.
@@ -67,20 +49,9 @@ LLM/разработчик **не имеет права додумывать с�
 
 ## Specification Lock
 
-Canonical docs — source of truth для implementation.
+Canonical docs — source of truth. Во время обычной задачи `implement`, `fix`, `refactor`, `test`, `migration` требования не ослаблять ради удобства реализации.
 
-Во время обычной задачи `implement`, `fix`, `refactor`, `test`, `migration` canonical docs находятся в read-only mode. Ошибка реализации, неудобство API или падающий тест не являются основанием переписать требование.
-
-Если код и docs расходятся:
-
-1. Считать documented behavior целевым.
-2. Исправить код или тест.
-3. Если requirement противоречив или practically impossible — зафиксировать конфликт для владельца продукта.
-4. Не ослаблять requirement молча.
-
-Semantic docs update разрешён, когда владелец продукта явно просит изменить/уточнить product, UX или architecture decision.
-
-Порядок semantic change:
+Semantic change order:
 
 ```text
 owner decision
@@ -92,9 +63,7 @@ owner decision
 
 ## Development shape
 
-AIDIX — один repository и одна product codebase. AIDIX application processes запускаются через Docker Compose; host-process mode не является canonical development path. PostgreSQL и S3 являются внешними dependencies и подключаются через ENV. Отдельный Caddy/reverse-proxy container в repository stack не используется.
-
-Canonical Compose services:
+AIDIX — один repository и одна product codebase. Canonical Compose services:
 
 ```text
 web
@@ -102,7 +71,7 @@ worker
 migrate
 ```
 
-Не создавать отдельный backend только ради «правильной архитектуры». Next.js является BFF/web application; server-side domain/application services располагаются вне React/FSD slices и могут вызываться из Server Actions/Route Handlers/worker.
+PostgreSQL и S3 внешние. Caddy/reverse-proxy container отсутствует.
 
 Framework-facing код должен быть тонким:
 
@@ -114,23 +83,19 @@ Business rules запрещено дублировать в React components, ro
 
 ## Strict Feature-Sliced Design
 
-Frontend Next.js реализуется строго по FSD.
-
 Canonical frontend structure:
 
 ```text
 src/
-  app/            Next.js App Router adapters: routes, layouts, route handlers
-  1_app/          FSD app layer: providers, app composition, global client setup
-  2_pages/        FSD page compositions imported by Next route files
-  3_widgets/      FSD reusable large UI blocks; optional until needed
-  4_features/     FSD user interactions/use-cases
-  5_entities/     FSD business entities represented in UI
-  6_shared/       FSD shared UI/lib/config; shadcn primitives live here
-  server/         server-only application/domain/infrastructure code
+  app/            Next.js App Router adapters only
+  1_app/          providers/app composition
+  2_pages/        page compositions
+  3_widgets/      reusable large UI blocks when justified
+  4_features/     user interactions/use-cases
+  5_entities/     business UI entities
+  6_shared/       shared UI/lib/config
+  server/         server-only application/domain/infrastructure
 ```
-
-Числовые префиксы обязательны: они сохраняют порядок FSD и не конфликтуют с Next.js legacy `pages` router.
 
 Dependency direction:
 
@@ -140,23 +105,17 @@ Dependency direction:
 
 Rules:
 
-- слой может импортировать только нижележащие FSD layers;
+- слой импортирует только нижележащие FSD layers;
 - slices одного слоя не импортируют друг друга напрямую;
-- каждый slice имеет минимальный explicit public API, обычно через `index.ts`;
+- каждый slice имеет минимальный explicit public API;
 - wildcard barrel exports запрещены;
-- внутри slice использовать relative imports, между slices — configured absolute aliases;
-- `src/app` не является местом product logic: route/layout files только подключают `1_app`/`2_pages`, metadata и server adapters;
-- `3_widgets` не создавать «на всякий случай»; widget появляется только для реально переиспользуемой крупной композиции;
-- `6_shared` не содержит product-specific business semantics;
-- не создавать параллельные каталоги `components/`, `hooks/`, `utils/`, `helpers/`, `types/` вне корректного FSD slice/layer;
-- React/FSD slices не импортируют Prisma client, AWS SDK, Kie/Robokassa implementation или `src/server/infrastructure` напрямую;
-- server-only modules не импортируют React/FSD page/feature/entity UI.
+- внутри slice relative imports, между slices absolute aliases;
+- `src/app` содержит только routing/layout/metadata/server-adapter composition;
+- root-level `components`, `hooks`, `utils`, `helpers`, `types`, `modules` запрещены как parallel architecture;
+- React/FSD code не импортирует Prisma/AWS SDK/Kie/Robokassa/SMTP infrastructure напрямую;
+- server-only modules не импортируют React/FSD UI.
 
-Любое отступление от этих правил требует explicit architecture decision владельца и docs-first update.
-
-## Server module boundaries
-
-Server-side код FSD не заменяет и не смешивает с frontend slices.
+## Server boundaries
 
 Предпочтительная структура:
 
@@ -174,81 +133,91 @@ src/server/
     storage/
     payments/robokassa/
     email/
+      templates/
+      smtp/
 ```
 
-`server/core` не импортирует Next.js, React, Prisma client, Kie HTTP implementation, AWS SDK, Robokassa-specific implementation или конкретный email-provider SDK.
+`server/core` не импортирует Next.js, React, Prisma client, provider SDKs или SMTP package.
 
-## Authentication rules
+## Environment rules
+
+- ENV читается только через типизированный T3 Env layer.
+- Application code не читает `process.env` напрямую, кроме dedicated env bootstrap/config module where T3 Env requires it.
+- Valibot schemas используются для ENV validation.
+- Next.js web использует `@t3-oss/env-nextjs`; worker/migrate должны получать эквивалентно типизированную/валидированную server configuration из той же canonical schema family.
+- Server/client ENV boundaries разделены; секреты никогда не объявляются как `NEXT_PUBLIC_*`.
+- Build/start должен fail fast на отсутствующих required variables.
+- Для server-only variables предпочтительно отдельное server env schema/module, чтобы client code не получал server configuration surface.
+
+Canonical SMTP ENV surface:
+
+```text
+SMTP_HOST
+SMTP_PORT
+SMTP_SECURE
+SMTP_USER
+SMTP_PASSWORD
+SMTP_FROM_EMAIL
+SMTP_FROM_NAME
+```
+
+Конкретные значения environment-specific и не коммитятся.
+
+## Authentication and email rules
 
 - MVP auth — passwordless email OTP через Better Auth.
-- Не добавлять password sign-in/sign-up UI или password reset flow в MVP.
-- Production email provider — `TBD`; до выбора vendor использовать provider-neutral email boundary/fake adapter в tests.
-- Никогда не логировать OTP в production logs.
-- Первый eligible подтверждённый account получает один idempotent `PROMO_GRANT` на `+3` credits.
-- Social login является future capability; конкретные providers не выбирать самостоятельно.
+- OTP email template рендерится React Email.
+- React Email отвечает за template/rendering; SMTP adapter отвечает только за delivery.
+- SMTP credentials доступны только server-side через validated env layer.
+- Не добавлять password UI/reset flow.
+- Не логировать OTP, SMTP password или rendered email с sensitive content в production.
+- Tests используют fake email sender/transport и не требуют живого SMTP.
+- Первый eligible account получает один idempotent `PROMO_GRANT` на `+3` credits.
+- Social login future-only; providers не выбирать самостоятельно.
+
+## Forms and validation rules
+
+- Пользовательские React forms реализуются через **Formisch (`@formisch/react`) + Valibot**.
+- Не добавлять React Hook Form/Formik или второй form-state framework без explicit decision.
+- Не собирать полноценную форму вручную из множества `useState`/самописной validation state machine.
+- Valibot schema является source of truth для структуры/валидации формы; TypeScript types выводятся из schema там, где это возможно.
+- Formisch field/form state располагается в корректном FSD feature/page slice, а не в `shared`.
+- shadcn `Input`, `Button`, `Select`, `Textarea` и другие primitives используются как visual controls; не использовать shadcn Form abstractions, которые требуют React Hook Form.
+- Client validation улучшает UX, но не является security boundary: server action/route handler повторно валидирует untrusted input Valibot schema перед application service.
+- Общие schema выносить в shared только если они действительно не содержат product-specific semantics.
 
 ## UI implementation rules
 
-- UI и styling выполняются только через Tailwind CSS + shadcn/ui.
-- shadcn source primitives располагаются в `src/6_shared/ui`.
-- Не добавлять MUI, Ant Design, Chakra, Mantine, Bootstrap, CSS Modules, Sass, styled-components, Emotion или второй component framework.
-- Product-owned components должны композиционно использовать shadcn primitives и Tailwind utilities.
-- `globals.css` содержит только Tailwind/shadcn theme/base concerns, не page-specific styling.
-- Не создавать параллельный custom design-system package поверх shadcn без explicit owner decision.
+- UI/styling только Tailwind CSS + shadcn/ui.
+- shadcn primitives располагаются в `src/6_shared/ui`.
+- Не добавлять MUI, Ant Design, Chakra, Mantine, Bootstrap, CSS Modules, Sass, styled-components, Emotion.
+- `globals.css` содержит только Tailwind/shadcn theme/base concerns.
 
 ## AI generation rules
 
 - `Generation` создаётся до external provider call.
-- Credit reservation выполняется atomically с созданием Generation.
-- Kie provider call никогда не выполняется внутри DB transaction.
-- Worker обязан быть idempotent по generation/variant id. Kie callback также обрабатывается idempotently по `providerTaskId`.
-- Retry не должен повторно списывать credit.
-- Kie `createTask` success означает только принятую async task. Variant становится `SUCCEEDED` только после authoritative Kie task success и копирования результата во внешний AIDIX S3.
-- Если provider returned success, но сохранение output не завершилось, generation остаётся retryable и credit не возвращается до окончательного failure decision.
-- Не хранить временный Kie result URL как canonical output URL. Callback служит completion hint; worker обязан уметь reconcile task через Kie task-detail API при потерянном callback.
-- Не логировать raw private images, base64 payloads или API keys.
-
-## Image prompt ownership
-
-Prompt template принадлежит product code и versioned как `promptVersion`. User prompt не отправляется напрямую как полный provider prompt.
-
-Application формирует structured prompt из:
-
-- operation type;
-- room type;
-- style recipe;
-- immutable constraints;
-- user wishes;
-- reference roles;
-- safety/realism instructions.
-
-Каждая generation хранит `promptVersion`, provider/model snapshot и safe normalized settings, чтобы можно было расследовать regression.
-
-## Data/privacy rules
-
-- Source/reference/generated images private by default.
-- Object keys не содержат email/имя пользователя.
-- Signed GET URLs короткоживущие.
-- Bucket не public.
-- Account deletion удаляет product metadata и ставит owned objects в deletion queue/cleanup path.
-- Public gallery не входит в MVP.
+- Credit reservation atomic с созданием Generation.
+- Provider call не выполняется внутри DB transaction.
+- Worker и callbacks idempotent.
+- Retry не списывает credit повторно.
+- Provider result становится success только после сохранения output в AIDIX S3.
+- Temporary provider URL не является canonical output.
+- Не логировать private images/base64/API keys.
 
 ## Billing rules
 
-- Новый eligible account получает ровно `3` promotional credits один раз; UI представляет их как три бесплатные генерации.
-- Robokassa `ResultURL` является authoritative server payment notification surface; `SuccessURL` сам по себе не подтверждает платёж.
-- Баланс определяется append-only `CreditLedgerEntry`, а не mutable `user.credits` как единственным source of truth.
-- Можно иметь cached balance, но ledger остаётся canonical.
-- Payment notification processing идемпотентно по internal payment/invoice identity.
+- Новый eligible account получает ровно `3` promotional credits один раз.
+- Robokassa `ResultURL` — authoritative server payment notification; `SuccessURL` сам по себе не подтверждает платёж.
+- Credit ledger append-only и canonical.
 - Successful payment начисляет credits ровно один раз.
-- Generation failure refund создаёт отдельную ledger entry; исходное списание не удаляется.
-- Catalog structure, package sizes и цены остаются `TBD` до explicit owner decision перед M6.
+- Failure refund — отдельная ledger entry.
+- Paid catalog/prices/currency/fiscal settings `TBD` до owner decision перед M6.
 
 ## Testing discipline
 
-Canonical test runner — `bun:test`. Не добавлять Vitest/Jest без explicit architecture decision.
+Canonical test runner — `bun:test`. Не добавлять Vitest/Jest без explicit decision.
 
-До handoff обязательны:
+До handoff:
 
 ```text
 bun run lint
@@ -257,22 +226,12 @@ bun test
 bun run build
 ```
 
-Integration suites также запускаются через Bun test runner; допустим отдельный script вроде `bun run test:integration`, если он лишь выбирает соответствующий набор `bun test` tests.
+Architecture tests ловят FSD violations, forbidden imports, raw `process.env` reads вне env module, React Hook Form/Zod dependencies и обход Formisch/Valibot conventions.
 
-Browser E2E framework пока `TBD`. Playwright не является dependency/gate M0. Перед browser E2E implementation должен быть отдельный owner/architecture checkpoint; до этого не добавлять Playwright/Cypress и не обещать cross-browser coverage.
+External Kie/Robokassa/SMTP calls в обычном CI не выполняются. Database/S3 integration uses explicit external test ENV only.
 
-Architecture/lint checks должны ловить запрещённые FSD imports и не позволять постепенно обходить FSD через generic root-level folders.
-
-External Kie/Robokassa calls в обычном CI не выполняются. Использовать contract fixtures/fake adapters; отдельный opt-in smoke test может обращаться к Kie и Robokassa test mode. S3 integration test использует явно настроенный внешний test bucket, а не MinIO container. Database integration tests используют явно настроенный внешний test PostgreSQL через ENV, а не PostgreSQL container.
+Browser E2E framework пока `TBD`; Playwright не является dependency M0.
 
 ## Progress handoff
 
-`docs/progress.md` хранит:
-
-- current milestone;
-- одну `IN_PROGRESS` task максимум;
-- completed verification;
-- blockers;
-- next concrete action.
-
-Progress не меняет requirements и не используется как аргумент против canonical docs.
+`docs/progress.md` хранит current milestone, одну active task максимум, verification, blockers и next action. Progress не меняет requirements.

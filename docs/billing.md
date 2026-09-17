@@ -1,10 +1,19 @@
 # Billing and credits
 
-## 1. Commercial model MVP
+## 1. Commercial model
 
-MVP uses **one-time credit packages**, not subscriptions.
+Credits are the canonical internal unit consumed by generation operations.
 
-Reason: user demand around renovation is episodic; one-time packages are simpler to explain, implement and support. Subscription may be added after usage data shows recurring professional demand.
+The exact paid catalog structure is **TBD** until an explicit owner decision before M6. Documentation and implementation must not invent:
+
+- package names;
+- credits per package;
+- prices;
+- discounts;
+- subscription/autorenewal semantics;
+- promotional paid offers.
+
+Robokassa is the selected payment provider, but provider choice does not define the commercial catalog.
 
 ## 2. Credit semantics
 
@@ -20,38 +29,39 @@ Verified/new eligible account receives **`3` free promotional credits once**. Pr
 
 The same three credits may be spent on three single-variant requests or on one/more multi-variant requests. For example, a request for three variants consumes all three promotional credits.
 
-Abuse controls may require email verification, rate limits and additional anti-fraud checks. Product must not silently grant repeat promotional credits after account recreation using the same verified identity where a reliable signal exists.
+The promo is granted only after successful first Email OTP authentication/verification according to the auth flow. Product must not silently grant repeat promotional credits after account recreation using the same verified identity where a reliable signal exists.
 
-## 4. Package catalog
+## 4. Paid catalog — TBD
 
-Initial package values are product configuration and should be stored in code/database seed with stable `packageCode`.
+Paid catalog values are not yet approved.
 
-Proposed launch set for validation:
+Canonical state:
 
-| Package | Credits | Price |
-| --- | ---: | ---: |
-| `START` | 20 | 590 ₽ |
-| `PLUS` | 60 | 1 490 ₽ |
-| `PRO` | 200 | 3 990 ₽ |
+```text
+package names: TBD
+credits per package: TBD
+prices: TBD
+subscription/autorenewal: TBD
+```
 
-These values are an initial commercial hypothesis. Changing price/quantity is a product decision and must update this document before release configuration.
+Do not seed production package values until this document is updated from an explicit owner decision.
 
-No auto-renewal in MVP.
+M0–M5 implementation may keep the billing domain/provider boundary without a production purchasable catalog. M6 cannot be completed until the paid catalog decision is made.
 
 ## 5. Payment provider — Robokassa
 
 Production payment provider MVP: **Robokassa**.
 
-Canonical checkout flow:
+Canonical checkout flow once a paid catalog exists:
 
-1. user chooses a package;
-2. server creates internal `Payment` in `PENDING` with stable internal invoice/order id;
+1. user chooses an approved purchasable item/package;
+2. server creates internal `Payment` in `PENDING` with stable internal invoice/order id and immutable purchase snapshot;
 3. server builds Robokassa payment parameters including `MerchantLogin`, `OutSum`, `InvId` and `SignatureValue` using Password #1;
 4. browser is redirected/submitted to Robokassa payment interface;
 5. Robokassa sends authoritative server notification to configured `ResultURL`;
 6. AIDIX verifies `SignatureValue` for ResultURL using Password #2, verifies invoice identity and expected amount, then processes the notification idempotently;
 7. after successful processing AIDIX returns `OK{InvId}` to Robokassa;
-8. one idempotent `PACKAGE_PURCHASE` ledger entry grants package credits;
+8. one idempotent credit-grant ledger entry grants exactly the purchased credit amount from the immutable purchase snapshot;
 9. `SuccessURL` and `FailURL` are user redirect surfaces only and never grant credits by themselves.
 
 The internal payment state is the AIDIX source of truth. Browser return from Robokassa must only display/reload that state.
@@ -103,25 +113,23 @@ Technical generation refunds are **credit refunds**, not payment refunds, and fo
 
 ### Monetary payment refund
 
-Payment refund is support/admin flow, not self-service MVP.
+Payment refund policy/UX is **TBD** until the commercial catalog and support policy are approved.
 
-If monetary refund reverses unused purchased credits, system creates a `PAYMENT_REVERSAL` ledger movement. If user has already consumed credits, support policy must decide whether partial monetary refund is allowed; do not make ledger negative implicitly without explicit admin decision.
+If monetary refunds are implemented, ledger history remains append-only. Never delete original purchase/consumption ledger rows to simulate a refund.
 
 Exact Robokassa refund/operation procedure must be implemented against the provider's current documented API at implementation time; do not infer it from checkout semantics.
 
 ## 10. Expiration
 
-Purchased credits do not expire in MVP unless legal/business policy explicitly changes.
+Purchased-credit expiration policy is `TBD` until the paid catalog is approved.
 
-Promotional credits may have future expiry, but signup promotion v1 has no expiry to avoid separate expiry accounting in initial implementation.
+Signup promotional credits do not expire in MVP unless an explicit owner decision changes this behavior.
 
 ## 11. Currency/taxes/receipts
 
-MVP storefront currency: RUB.
+Storefront currency, tax/VAT and fiscal receipt configuration remain **TBD** until owner/legal/merchant configuration is explicitly confirmed. Do not infer them from the choice of Robokassa or from earlier draft values.
 
-Fiscal receipt/VAT configuration depends on the merchant's legal/tax setup and Robokassa merchant configuration and must be confirmed before production payments. Do not invent tax treatment or receipt parameters in engineering code/docs before that business/legal decision.
-
-Robokassa receipt payload details stay inside the payment adapter so tax/fiscalization configuration can change without touching credit domain logic.
+Robokassa receipt payload details stay inside the payment adapter so fiscalization configuration can change without touching credit domain logic.
 
 ## 12. Admin adjustments
 

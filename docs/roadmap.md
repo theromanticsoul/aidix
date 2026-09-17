@@ -7,83 +7,93 @@ Roadmap fixes implementation order, not calendar promises.
 Acceptance:
 
 - Next.js/TypeScript project running with Bun as runtime/package manager;
-- strict frontend FSD skeleton: `src/app`, `src/1_app`, `src/2_pages`, `src/3_widgets`, `src/4_features`, `src/5_entities`, `src/6_shared`;
-- automated FSD/import-boundary checks from the beginning;
-- Tailwind CSS + shadcn/ui only, with shadcn primitives under `src/6_shared/ui`;
+- strict FSD skeleton and automated import-boundary checks;
+- Tailwind CSS + shadcn/ui only;
+- Formisch + Valibot form foundation;
+- T3 Env + Valibot ENV validation foundation;
+- no raw `process.env` usage outside env bootstrap/config;
 - lint/typecheck/`bun test`/build scripts;
-- Prisma migration path against external PostgreSQL from `DATABASE_URL`;
-- Better Auth Email OTP skeleton with provider-neutral email sender boundary and fake test adapter; production email provider remains `TBD`;
-- Docker Compose application environment containing `web`, `worker`, `migrate` only;
-- no Caddy, PostgreSQL or S3 container in repository Compose;
+- Prisma migration path against external PostgreSQL via `DATABASE_URL`;
+- Better Auth Email OTP skeleton;
+- React Email OTP template skeleton;
+- provider-neutral `EmailSender` boundary + fake test adapter;
+- SMTP ENV schema (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`);
+- SMTP transport package isolated as replaceable infrastructure implementation;
+- Docker Compose containing `web`, `worker`, `migrate` only;
+- no Caddy/PostgreSQL/S3 container;
 - external PostgreSQL/S3 ENV validation;
-- canonical docs and AGENTS rules committed.
+- canonical docs committed.
 
 Gate:
 
 - `bun run lint`, `bun run typecheck`, `bun test`, `bun run build` pass;
-- FSD architecture checks pass;
-- application containers can start with valid external database configuration;
-- no unapproved email provider/browser E2E dependency is introduced.
+- FSD/Formisch/ENV architecture checks pass;
+- application containers start with valid external DB config;
+- missing required ENV fails fast;
+- no unapproved browser E2E dependency introduced.
 
 ## M1 — Project and asset foundation
 
 Deliver:
 
 - project CRUD;
-- authenticated external S3-compatible object storage from ENV;
+- Formisch + Valibot project forms;
+- external S3 storage;
 - image upload/validation/normalization;
-- project gallery/history shell implemented inside documented FSD boundaries.
+- project gallery/history shell.
 
 Gate:
 
 - cross-user authorization tests;
 - private storage tests;
-- FSD architecture checks pass;
-- valid source image can be uploaded and viewed only by owner.
+- FSD/form architecture checks;
+- valid source image owner-only.
 
 ## M2 — Auth completion and credits
 
 Deliver:
 
-- production-ready Better Auth Email OTP flow at application level;
-- provider-neutral email delivery boundary;
-- production transactional email provider integration only after explicit owner selection;
+- production-ready Better Auth Email OTP application flow;
+- React Email OTP template;
+- SMTP transport implementation using environment-configured SMTP server;
 - append-only credit ledger;
-- one-time signup promo grant of exactly `+3` credits after eligible first OTP authentication;
-- UI copy representing the promo as `3 бесплатные генерации`;
+- one-time `+3` promo grant after eligible first OTP auth;
 - balance UI;
 - atomic reserve/charge helpers.
 
 Gate:
 
-- fake-email OTP flow is fully covered with Bun tests;
-- production email vendor remains a documented blocker until selected/configured;
+- OTP request renders React Email and sends through fake SMTP in normal tests;
+- opt-in SMTP test delivery succeeds with configured test ENV before production;
+- OTP values/secrets absent from logs;
 - concurrent requests cannot overspend;
-- promo cannot duplicate and always grants exactly 3 credits once.
+- promo exactly once.
+
+No SMTP SaaS vendor is selected in product code; deployment supplies SMTP configuration.
 
 ## M3 — First AI generation
 
-Before implementation begins, owner must approve the Kie.ai image model. Current canonical value: `KIE_IMAGE_MODEL=TBD`.
+Before implementation, owner approves Kie.ai image model. Current `KIE_IMAGE_MODEL=TBD`.
 
 Deliver:
 
 - `REDESIGN_PHOTO` generation;
+- Formisch + Valibot generator form;
 - room/style/wishes;
-- generation + variants lifecycle;
+- generation/variants lifecycle;
 - worker;
-- Kie.ai async image adapter (`createTask`, callback verification, `recordInfo` reconciliation);
-- mapping for the explicitly approved Kie.ai model;
-- stable output copy from temporary Kie result URL to external AIDIX S3;
+- Kie adapter for approved model;
+- result copy to external S3;
 - technical failure refunds.
 
 Gate:
 
-- selected model documented before implementation;
-- end-to-end generation works with fake provider in Bun tests;
-- opt-in real Kie provider smoke;
-- initial image benchmark accepted.
+- selected model documented;
+- fake-provider E2E at application level through Bun tests;
+- opt-in Kie smoke;
+- image benchmark accepted.
 
-Browser E2E tool checkpoint occurs during M3–M4. A browser E2E tool is expected before production launch, but Playwright/Cypress/other framework is not preselected.
+Browser E2E tool checkpoint begins during M3–M4. Tool is `TBD`; Playwright not preselected.
 
 ## M4 — References and result UX
 
@@ -98,15 +108,15 @@ Deliver:
 
 Gate:
 
-- reference prompt/input ordering covered;
-- partial failure charges/refunds correctly;
-- browser E2E tool decision completed and critical authenticated generation flow covered before M4 is considered release-ready.
+- reference ordering covered;
+- partial failure credits correct;
+- browser E2E tool decision completed before release-ready status.
 
 ## M5 — Public landing and SEO
 
 Deliver:
 
-- hero with `3 бесплатные генерации` offer;
+- hero with `3 бесплатные генерации`;
 - before/after examples;
 - how it works;
 - styles;
@@ -117,48 +127,46 @@ Deliver:
 
 Gate:
 
-- every CTA resolves to functional OTP signup/login/generator flow;
-- no copy promises unimplemented plan/3D capability;
-- no unapproved package price/name appears in UI;
-- landing/authenticated frontend obey FSD and Tailwind + shadcn constraints.
+- CTA resolves to OTP flow/generator;
+- no unimplemented plan/3D claims;
+- no unapproved prices;
+- FSD + Tailwind/shadcn + Formisch/Valibot conventions pass.
 
 ## M6 — Payments
 
-Before implementation of production catalog, owner must approve package structure, credit amounts, prices, currency and required fiscal/tax semantics. Current values are `TBD`.
+Before production catalog implementation, owner approves package structure, credit amounts, prices, currency and fiscal/tax semantics. Current values `TBD`.
 
 Deliver:
 
 - approved paid catalog;
-- Robokassa payment checkout with signed `MerchantLogin + OutSum + InvId` parameters;
-- Robokassa `ResultURL` handler with Password #2 signature verification, amount/invoice verification and `OK{InvId}` acknowledgement;
-- `SuccessURL` / `FailURL` user redirect screens that never grant credits directly;
+- Robokassa checkout;
+- authoritative ResultURL verification;
+- SuccessURL/FailURL navigation only;
 - payment history;
 - idempotent credit grants;
-- support reconciliation path;
-- Robokassa test-mode integration coverage.
+- reconciliation/support path;
+- test-mode coverage.
 
 Gate:
 
-- paid catalog and fiscal settings explicitly approved;
-- Robokassa test payment passes;
-- invalid ResultURL signature is rejected;
-- wrong amount/invoice is rejected;
-- repeated valid ResultURL notification is idempotent;
-- user never receives credits from `SuccessURL` alone.
+- catalog/fiscal settings approved;
+- test payment passes;
+- invalid signature/amount/invoice rejected;
+- duplicate notification idempotent;
+- SuccessURL alone never grants credits.
 
 ## M7 — Production hardening / MVP launch
 
 Deliver:
 
-- production Docker deployment for `web`, `worker`, `migrate`;
-- external PostgreSQL migration/backup/recovery procedure for the chosen database deployment;
-- public HTTPS endpoint/TLS verified in the chosen deployment environment without introducing Caddy by default;
-- structured logs;
-- generation metrics;
-- rate limiting/abuse controls;
-- privacy/terms/error monitoring;
-- production transactional email provider configured;
-- critical browser E2E suite using the explicitly approved tool.
+- production Docker deployment `web`, `worker`, `migrate`;
+- external PostgreSQL migration/backup/recovery procedure;
+- public HTTPS/TLS verified in chosen environment;
+- complete T3 Env production schema;
+- SMTP production configuration and delivery verification;
+- structured logs/metrics/rate limiting/error monitoring;
+- privacy/terms;
+- approved browser E2E suite.
 
 Launch gate defined in `testing.md`.
 
@@ -168,53 +176,30 @@ Launch gate defined in `testing.md`.
 
 ## Social authentication
 
-Better Auth remains the auth framework. Social login is a planned capability, but specific providers remain `TBD` until explicit owner decision.
+Better Auth remains auth framework. Concrete social providers `TBD` until owner decision.
 
 ## V1.1 — Local editing
 
-- mask upload/editor;
-- change wall/floor/furniture operations;
-- model-specific local edit prompt recipes.
+- mask editor;
+- wall/floor/furniture operations;
+- model-specific recipes.
 
 ## V1.1 — Upscale
 
-Research dedicated upscaler vs high-resolution re-generation. Define separate credit cost only after measured provider cost/quality and explicit owner decision.
+Separate quality/cost research before defining credit price.
 
 ## V1.2 — Text-to-interior
 
-Generate concept without user room photo. Keep separate from photo-redesign because product promise differs.
+Separate mode from photo redesign.
 
 ## V1.2 — Floor-plan concept spike
 
-Research whether floor plan + constraints can produce useful perspective concepts while clearly communicating non-engineering accuracy.
-
-Gate before productization:
-
-- benchmark across several plan shapes;
-- output does not falsely imply exact dimensions;
-- UX distinguishes plan concept from photo redesign.
+Research concept generation from plans without implying engineering accuracy.
 
 ## V2 — Material/furniture catalog
 
-Requires product/catalog source and rights, not just AI references.
-
-Potential capabilities:
-
-- SKU image references;
-- dimensions;
-- price/availability;
-- affiliate/commerce integration;
-- visual matching confidence.
+Requires explicit catalog source/rights/pricing data.
 
 ## Research track — 3D
 
-Not scheduled as incremental image-generation feature.
-
-Only start after decision on required output:
-
-- simple panorama;
-- navigable room;
-- editable scene;
-- exportable CAD/BIM.
-
-These are materially different products and must not share one vague `3D` requirement.
+Not an incremental image-generation feature. Start only after defining required output type.

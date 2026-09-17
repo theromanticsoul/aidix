@@ -2,30 +2,36 @@
 
 ## 1. Architecture
 
-AIDIX — modular monolith с отдельным lightweight generation worker из той же codebase. Весь application stack запускается через Docker. Единственная внешняя инфраструктурная зависимость, которая не поднимается Compose-файлом, — S3-compatible object storage, подключаемый через ENV.
+AIDIX — modular monolith с отдельным lightweight generation worker из той же codebase. AIDIX application processes запускаются через Docker. PostgreSQL и S3-compatible object storage являются внешними dependencies и подключаются через ENV; AIDIX не поднимает для них containers.
 
 ```text
 Browser
-  -> Caddy (Docker)
-    -> Next.js web (Docker)
-       -> PostgreSQL (Docker)
+  -> Next.js web (Docker)
+       -> external PostgreSQL (DATABASE_URL)
        -> external S3-compatible storage (ENV)
+       -> Better Auth Email OTP
+       -> transactional email provider (TBD)
        -> Robokassa payment interface / ResultURL
        -> Kie.ai callback endpoint
-    -> worker (Docker, no public port)
-       -> PostgreSQL
-       -> external S3-compatible storage
-       -> Kie.ai API
+
+worker (Docker, no public port)
+  -> external PostgreSQL
+  -> external S3-compatible storage
+  -> Kie.ai API
 
 migrate (Docker one-shot)
-  -> PostgreSQL
+  -> external PostgreSQL
 ```
+
+AIDIX repository stack не содержит Caddy/reverse-proxy container. TLS/reverse proxy/edge termination относится к deployment environment и не фиксируется в этой спецификации до отдельного owner decision.
 
 Нет отдельного REST API application: browser взаимодействует с Next.js Server Actions/Route Handlers. Public integration API не является product requirement.
 
 Kie.ai — canonical image-generation gateway AIDIX. В MVP приложение не вызывает OpenAI, fal.ai, Replicate или другие model providers напрямую.
 
 Robokassa — canonical payment provider MVP. Payment/credit domain остаётся отделён от provider-specific signature and redirect semantics.
+
+Better Auth + Email OTP — canonical authentication mechanism MVP. Production transactional email provider не выбран и остаётся `TBD`.
 
 Frontend-часть Next.js строго следует Feature-Sliced Design. FSD применяется только к frontend composition/UI; server-side application/domain/infrastructure code живёт в отдельной `src/server` boundary и не маскируется под FSD slices.
 
@@ -60,6 +66,7 @@ src/
       credits/
       payments/
       storage/
+      email/
     infrastructure/
       db/
       ai/
@@ -67,6 +74,7 @@ src/
       storage/
       payments/
         robokassa/
+      email/
 worker/
   index.ts
 prisma/
@@ -76,7 +84,7 @@ prisma/
 
 `src/app` — framework-owned Next.js App Router adapter layer. Route/layout files в нём должны быть тонкими: metadata, params, composition и вызов server adapters. Product UI и client behavior не складываются непосредственно в route directories.
 
-`src/server/core` не импортирует Next.js, React, Prisma client, Kie HTTP client implementation, AWS SDK или Robokassa-specific implementation.
+`src/server/core` не импортирует Next.js, React, Prisma client, Kie HTTP client implementation, AWS SDK, Robokassa-specific implementation или конкретный email-provider SDK.
 
 ### Strict FSD frontend
 
@@ -93,7 +101,7 @@ Responsibilities:
 - `1_app` — providers, client-side app composition, global app initialization;
 - `2_pages` — page-level compositions, которые импортируются route files из `src/app`;
 - `3_widgets` — переиспользуемые крупные UI-блоки; слой optional и создаётся только при реальной необходимости;
-- `4_features` — пользовательские действия/use-cases: create project, configure generation, purchase credits и т.п.;
+- `4_features` — пользовательские действия/use-cases: sign in by OTP, create project, configure generation, purchase credits и т.п.;
 - `5_entities` — UI representation и model helpers бизнес-сущностей: project, generation, asset, credit balance;
 - `6_shared` — truly generic UI/lib/config без product-specific business semantics. shadcn/ui source primitives располагаются в `src/6_shared/ui`.
 
@@ -121,19 +129,20 @@ Canonical stack:
 - strict Feature-Sliced Design for Next.js frontend;
 - Tailwind CSS;
 - shadcn/ui;
-- Bun package manager/scripts/runtime tooling;
-- PostgreSQL;
+- **Bun runtime, package manager, script runner and test runner**;
+- external PostgreSQL configured by `DATABASE_URL`;
 - Prisma ORM/migrations;
-- Better Auth;
+- Better Auth with Email OTP plugin;
+- production transactional email provider: `TBD`;
 - native `fetch`/thin HTTP client for Kie.ai API;
 - AWS SDK v3 for S3-compatible storage;
 - `sharp` for image validation/normalization;
 - Zod for boundary validation;
 - Robokassa payment integration via signed payment interface and ResultURL;
-- Vitest for unit/integration tests;
-- Playwright for critical browser flows;
-- Docker + Docker Compose for local, test-support and initial production deployment;
-- Caddy as public reverse proxy/TLS terminator in initial single-host production topology.
+- `bun:test` for unit/integration/architecture tests;
+- Docker + Docker Compose for AIDIX application processes (`web`, `worker`, `migrate`).
+
+Playwright/Cypress/another browser E2E framework is **not selected yet**. No browser E2E package is added in M0. Decision checkpoint is documented in `docs/testing.md`/`docs/roadmap.md`.
 
 Exact versions фиксируются lockfile; docs владеют technology/major choice, а не patch version.
 
@@ -151,12 +160,24 @@ shadcn/ui source primitives размещаются в `src/6_shared/ui`; product
 
 Better Auth mounted under `/api/auth/*`.
 
-MVP:
+MVP authentication is passwordless Email OTP:
 
-- email/password enabled;
-- secure HTTP-only sessions;
-- password reset before public launch;
-- email verification recommended for production abuse control.
+1. user submits email;
+2. Better Auth Email OTP flow requests a sign-in OTP;
+3. AIDIX passes delivery through a provider-neutral email sender boundary;
+4. user submits OTP;
+5. successful verification creates/opens session;
+6. first eligible account receives one idempotent `PROMO_GRANT` of `+3` credits.
+
+Rules:
+
+- password auth is disabled/not exposed in MVP;
+- no password reset flow in MVP;
+- production email provider is `TBD` and must not be inferred;
+- tests use a fake email sender capable of capturing OTP without external delivery;
+- production logs never contain OTP values;
+- exact OTP length/expiry/attempt limits remain Better Auth/config concerns and are not product promises until explicitly configured/documented;
+- future social login is allowed only after explicit selection of concrete providers.
 
 No organizations/roles in MVP.
 
@@ -417,7 +438,7 @@ Prompt templates are versioned in code (`redesign/v1`, etc.). Changing semantics
 
 ## 12. Worker
 
-Worker polls PostgreSQL rows using database locking; no Redis/message broker.
+Worker polls external PostgreSQL rows using database locking; no Redis/message broker.
 
 Claim transaction pattern:
 
@@ -444,6 +465,7 @@ Retryable examples:
 - Kie 429/rate limit;
 - Kie 5xx;
 - transient S3 failure;
+- transient external PostgreSQL connectivity failure where transaction safety is preserved;
 - temporary failure while downloading provider result;
 - missed callback when task can still be reconciled.
 
@@ -460,7 +482,7 @@ A retry of the same product variant must not create a second credit charge. If p
 
 ## 14. Credits and transactions
 
-New eligible account receives `3` promotional credits exactly once. The ledger grant remains one idempotent `PROMO_GRANT` business operation with amount `+3`, not three independent grants.
+New eligible account receives `3` promotional credits exactly once after successful first OTP authentication. The ledger grant remains one idempotent `PROMO_GRANT` business operation with amount `+3`, not three independent grants.
 
 Generation enqueue transaction:
 
@@ -492,13 +514,15 @@ Image endpoints send appropriate `Content-Disposition` for downloads and `Cache-
 
 Robokassa is the production payment provider for MVP. Domain code must not know signature formulas, merchant credentials or Robokassa URL/query shapes.
 
+Paid catalog/package sizes/prices are `TBD`; checkout implementation must consume only approved persisted purchase definitions and must not invent commercial values.
+
 ### Internal payment port
 
 ```ts
 type CheckoutInput = {
   paymentId: string;
   invoiceId: number;
-  amountRub: string;
+  amount: string;
   description: string;
 };
 
@@ -510,7 +534,7 @@ type CheckoutResult = {
 
 type VerifiedPaymentNotification = {
   invoiceId: number;
-  amountRub: string;
+  amount: string;
 };
 
 interface PaymentProvider {
@@ -533,9 +557,9 @@ Description
 SignatureValue
 ```
 
-`InvId` maps to a stable AIDIX internal payment/invoice identity. `OutSum` is generated from the canonical package price stored by AIDIX. Checkout `SignatureValue` is calculated inside the adapter using Robokassa Password #1 and the hash algorithm configured for the merchant account.
+`InvId` maps to a stable AIDIX internal payment/invoice identity. `OutSum` is generated from the canonical approved purchase snapshot stored by AIDIX. Checkout `SignatureValue` is calculated inside the adapter using Robokassa Password #1 and the hash algorithm configured for the merchant account.
 
-AIDIX must not trust amount/package data coming back from the browser. Server constructs checkout from persisted `Payment` and package snapshot.
+AIDIX must not trust amount/catalog data coming back from the browser. Server constructs checkout from persisted `Payment` and immutable purchase snapshot.
 
 ### ResultURL
 
@@ -555,7 +579,7 @@ ResultURL processing:
 4. reject mismatched signature;
 5. compare normalized received `OutSum` with persisted expected amount;
 6. idempotently transition eligible `Payment` to `SUCCEEDED`;
-7. append exactly one `PACKAGE_PURCHASE` ledger entry;
+7. append exactly one purchase credit-grant ledger entry;
 8. return plain text `OK{InvId}`.
 
 Repeated valid ResultURL notifications for an already succeeded payment must not grant credits twice and should still return the expected successful acknowledgement.
@@ -585,25 +609,23 @@ ROBOKASSA_IS_TEST
 
 No Robokassa secret uses `NEXT_PUBLIC_*`.
 
-Exact receipt/fiscalization parameters are **TBD until owner/legal/merchant configuration is explicitly decided**. Implementation must not invent VAT/tax/receipt semantics.
+Exact currency, receipt/fiscalization/tax parameters are **TBD until owner/legal/merchant configuration is explicitly decided**. Implementation must not invent them.
 
 ## 17. Docker deployment
 
-Docker is mandatory for running the application stack. Local development should not depend on host-installed PostgreSQL, Bun service processes or MinIO.
+Docker is mandatory for AIDIX application processes. Local development should not depend on host-run Bun application processes.
 
-Initial Compose services:
+Canonical Compose services:
 
 ```text
-caddy     public reverse proxy / TLS
-web       Next.js standalone application
-worker    generation worker
-postgres  PostgreSQL
+web       Next.js application running on Bun-compatible runtime setup
+worker    generation worker running with Bun
 migrate   one-shot Prisma migrations
 ```
 
-S3 is intentionally absent from Compose and supplied through ENV.
+PostgreSQL and S3 are intentionally absent from Compose and supplied through ENV.
 
-Production and local development use the same service boundaries; local Compose may change published ports, TLS behavior and bind mounts but not replace services with host processes.
+No Caddy/reverse-proxy service is part of the repository deployment topology.
 
 ### Images
 
@@ -613,32 +635,31 @@ One multi-stage `Dockerfile` should provide targets:
 - `worker`;
 - `migrate`.
 
-Caddy and PostgreSQL use pinned upstream images in Compose.
-
 Runtime containers:
 
 - run as non-root where practical;
+- use Bun as the project runtime/package toolchain;
 - contain production dependencies only;
 - receive secrets/configuration through ENV;
 - do not bake `.env` or credentials into images.
 
 ### Startup order
 
-1. PostgreSQL becomes healthy;
-2. `migrate` completes successfully;
-3. `web` and `worker` start;
-4. Caddy routes public traffic to `web`.
+1. external PostgreSQL must be reachable;
+2. `migrate` completes successfully against `DATABASE_URL`;
+3. `web` and `worker` start.
 
-Worker/application readiness must not depend on Kie or Robokassa being online at boot.
+Worker/application readiness must not depend on Kie, Robokassa, S3 or email provider being online at boot beyond explicit route/use-case requirements. Database connectivity is required for readiness.
 
 ## 18. Health
 
 - `/api/health`: process liveness;
-- `/api/ready`: checks PostgreSQL connectivity;
+- `/api/ready`: checks external PostgreSQL connectivity;
 - optional S3 diagnostic is separate from liveness and must not make web process unavailable because of a transient external storage outage;
+- optional email-provider diagnostic is separate from liveness;
 - worker heartbeat table/metric indicates last loop/claimed/reconciled job.
 
-Kie.ai and Robokassa are not part of `/ready`; upstream outage should not make marketing/account pages unavailable.
+Kie.ai, Robokassa, S3 and email provider are not part of basic `/ready`; upstream outage should not make marketing pages unavailable. Auth/generation/payment operations should surface dependency-specific failures.
 
 ## 19. Observability
 
@@ -646,9 +667,11 @@ Structured JSON logs with request/generation/provider task/payment ids.
 
 Never log:
 
-- passwords/session tokens;
+- session tokens;
+- OTP values in production;
 - Kie API key or webhook HMAC key;
 - Robokassa Password #1 / Password #2;
+- email-provider secrets;
 - image base64/binary payloads;
 - full signed S3 URLs;
 - temporary provider result URLs;
@@ -667,6 +690,7 @@ Metrics MVP:
 - payment success/failure;
 - Robokassa ResultURL signature failures;
 - duplicate payment notification count;
+- OTP send/verify success/failure counters without storing OTP values;
 - credit refund count.
 
 ## 20. Environment
@@ -679,6 +703,9 @@ DATABASE_URL
 BETTER_AUTH_SECRET
 BETTER_AUTH_URL
 APP_URL
+
+# transactional email
+# provider/vendor-specific variables: TBD after owner selects provider
 
 # external S3-compatible storage
 S3_ENDPOINT
@@ -717,7 +744,7 @@ Robokassa `ResultURL`, `SuccessURL` and `FailURL` are configured in the Robokass
 
 Secrets never use `NEXT_PUBLIC_*`.
 
-Startup config validation fails fast when required production variables are missing or placeholder values are used.
+Startup config validation fails fast for variables required by the process/use-case being started. A production environment cannot enable Email OTP sign-in until an approved production email provider is configured.
 
 ## 21. Local development workflow
 
@@ -733,13 +760,15 @@ Development/test commands run in containers, for example:
 ```text
 docker compose exec web bun run lint
 docker compose exec web bun run typecheck
-docker compose exec web bun run test
+docker compose exec web bun test
 docker compose exec web bun run build
 ```
 
-An external S3 test/dev bucket must be configured in `.env`. The repository must not silently create or fall back to local filesystem storage/MinIO when S3 variables are missing.
+External PostgreSQL and S3 test/dev endpoints must be configured in `.env`. The repository must not silently create or fall back to local PostgreSQL, filesystem storage or MinIO when variables are missing.
 
-Robokassa test mode is used for external payment integration testing; normal CI uses deterministic fixtures/fake adapter and never depends on live provider availability.
+Normal automated tests use fakes where external services are unnecessary. Dedicated integration tests may use explicitly configured external test PostgreSQL/S3 resources.
+
+Robokassa test mode is used for opt-in external payment integration testing; normal CI uses deterministic fixtures/fake adapter and never depends on live provider availability.
 
 ## 22. Explicit non-goals
 
@@ -753,7 +782,14 @@ MVP does not add:
 - custom computer vision microservice;
 - self-hosted diffusion/GPU model;
 - direct OpenAI/fal.ai/Replicate generation integration;
+- local PostgreSQL container;
 - local MinIO/S3 container;
+- Caddy/reverse-proxy container in repository stack;
+- password authentication;
+- an unapproved transactional email vendor;
+- unapproved social auth providers;
+- Vitest/Jest as project test runner;
+- Playwright/Cypress until browser E2E tool decision is explicitly made;
 - separate admin backend;
 - a second UI framework or styling system alongside Tailwind + shadcn/ui;
 - non-FSD frontend structure such as root-level `components`, `hooks`, `utils` or `modules` used as parallel architecture.

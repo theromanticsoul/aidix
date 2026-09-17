@@ -8,7 +8,7 @@ This document is operational handoff, not canonical requirements.
 
 ## Current task
 
-`READY` — initialize the AIDIX codebase from the canonical documentation.
+`COMPLETED` — initialize the AIDIX codebase from the canonical documentation.
 
 ## Inputs completed
 
@@ -34,20 +34,21 @@ This document is operational handoff, not canonical requirements.
 
 ## Next action
 
-Initialize codebase according to `docs/roadmap.md` M0:
+Continue with M1 according to `docs/roadmap.md`:
 
-1. Next.js + TypeScript on Bun;
-2. FSD folder skeleton/import boundaries;
-3. Tailwind + shadcn/ui;
-4. Formisch + Valibot form foundation;
-5. T3 Env + Valibot ENV modules with raw `process.env` isolation;
-6. Prisma against external `DATABASE_URL`;
-7. Better Auth Email OTP skeleton;
-8. React Email OTP template;
-9. EmailSender port + fake adapter + isolated SMTP transport implementation;
-10. Docker Compose for `web`, `worker`, `migrate`;
-11. external PostgreSQL/S3/SMTP ENV validation;
-12. lint/typecheck/`bun test`/build verification.
+1. Project CRUD with owner-scoped access;
+2. Formisch + Valibot project forms;
+3. External S3 storage boundary;
+4. Image upload validation and normalization;
+5. Project gallery/history shell.
+
+## Verification
+
+- `bun run lint` passes with Biome;
+- `bun run typecheck` passes;
+- `bun test` passes;
+- `bun run build` passes with configured placeholder ENV;
+- Prisma schema validates and Prisma Client generates with external PostgreSQL configuration.
 
 ## Non-blocking TBD decisions
 

@@ -202,6 +202,8 @@ At minimum:
 
 ## 14. Build gates
 
+Biome is the canonical formatter/linter. The `lint` gate runs Biome checks and must not introduce ESLint as a parallel linter.
+
 Before merge:
 
 ```text

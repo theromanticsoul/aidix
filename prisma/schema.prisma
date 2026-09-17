@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AssetKind {
+  SOURCE_ORIGINAL
+  SOURCE_NORMALIZED
+  REFERENCE
+  GENERATED
+  THUMBNAIL
+  MASK
+  UPSCALED
+}
+
+enum GenerationStatus {
+  DRAFT
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELED
+}
+
+enum VariantStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED_RETRYABLE
+  FAILED_TERMINAL
+}
+
+enum ReferenceRole {
+  STYLE
+  FURNITURE
+  MATERIAL
+}
+
+enum LedgerEntryType {
+  PROMO_GRANT
+  PURCHASE_GRANT
+  GENERATION_CHARGE
+  GENERATION_REFUND
+  MANUAL_ADJUSTMENT
+  PAYMENT_REVERSAL
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  CANCELED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model User {
+  id            String              @id
+  name          String
+  email         String              @unique
+  emailVerified Boolean             @default(false)
+  image         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  projects      Project[]
+  assets        Asset[]
+  generations   Generation[]
+  ledgerEntries CreditLedgerEntry[]
+  payments      Payment[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model Project {
+  id              String       @id @default(uuid())
+  userId          String
+  name            String
+  defaultRoomType String?
+  archivedAt      DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets          Asset[]
+  generations     Generation[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+model Asset {
+  id         String                @id @default(uuid())
+  userId     String
+  projectId  String?
+  kind       AssetKind
+  storageKey String                @unique
+  mime       String
+  width      Int
+  height     Int
+  bytes      Int
+  checksum   String
+  deletedAt  DateTime?
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project    Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  sourceFor  Generation[]          @relation("GenerationSource")
+  references GenerationReference[]
+  outputs    GenerationVariant[]
+
+  @@index([userId, projectId, createdAt(sort: Desc)])
+}
+
+model Generation {
+  id                    String                @id @default(uuid())
+  userId                String
+  projectId             String
+  sourceAssetId         String
+  operation             String
+  roomType              String
+  styleCode             String
+  styleVersion          String
+  wishes                String?
+  immutableInstructions String?
+  requestedVariants     Int
+  status                GenerationStatus      @default(DRAFT)
+  promptVersion         String
+  creditReservationId   String
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  source                Asset                 @relation("GenerationSource", fields: [sourceAssetId], references: [id])
+  references            GenerationReference[]
+  variants              GenerationVariant[]
+  ledgerEntries         CreditLedgerEntry[]
+
+  @@index([userId, projectId, createdAt(sort: Desc)])
+}
+
+model GenerationReference {
+  id           String        @id @default(uuid())
+  generationId String
+  assetId      String
+  role         ReferenceRole
+  position     Int
+  generation   Generation    @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  asset        Asset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([generationId, position])
+}
+
+model GenerationVariant {
+  id             String        @id @default(uuid())
+  generationId   String
+  index          Int
+  status         VariantStatus @default(PENDING)
+  outputAssetId  String?
+  providerTaskId String?       @unique
+  provider       String?
+  model          String?
+  errorCode      String?
+  latencyMs      Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  generation     Generation    @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  output         Asset?        @relation(fields: [outputAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([generationId, index])
+}
+
+model CreditLedgerEntry {
+  id             String          @id @default(uuid())
+  userId         String
+  type           LedgerEntryType
+  amountSigned   Int
+  generationId   String?
+  paymentId      String?
+  idempotencyKey String          @unique
+  createdAt      DateTime        @default(now())
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generation     Generation?     @relation(fields: [generationId], references: [id], onDelete: SetNull)
+  payment        Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Payment {
+  id               String              @id @default(uuid())
+  userId           String
+  status           PaymentStatus       @default(PENDING)
+  providerRef      String?             @unique
+  purchaseCode     String?
+  amountMinor      Int?
+  currency         String?
+  creditAmount     Int?
+  purchaseSnapshot String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerEntries    CreditLedgerEntry[]
+  providerEvents   ProviderEvent[]
+}
+
+model ProviderEvent {
+  id              String   @id @default(uuid())
+  providerCode    String
+  externalEventId String?
+  paymentId       String?
+  receivedAt      DateTime @default(now())
+  payloadHash     String?
+  payment         Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([providerCode, externalEventId])
+}

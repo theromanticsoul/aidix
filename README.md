@@ -81,7 +81,8 @@ FSD dependency direction: `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_enti
 
 Начальный stack:
 
-- Next.js 16+ App Router + TypeScript;
+- latest stable Next.js App Router + TypeScript;
+- React Compiler;
 - React + **Tailwind CSS + shadcn/ui как единственный UI/styling layer**;
 - strict Feature-Sliced Design для frontend-части Next.js;
 - **Bun как runtime, package manager, script runner и test runner**;
@@ -97,6 +98,7 @@ FSD dependency direction: `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_enti
 - внешний S3-compatible object storage для source/reference/generated images, подключаемый только через ENV и не поднимаемый Compose;
 - **Kie.ai** как единственный image-generation API gateway MVP; конкретная image model — `TBD` до owner decision перед M3;
 - **Robokassa** как production payment provider MVP;
+- Biome как formatter/linter для TypeScript/JavaScript/JSON;
 - Docker Compose как обязательный способ запуска AIDIX application processes (`web`, `worker`, `migrate`); внешний PostgreSQL и S3 остаются вне Compose;
 - отдельный reverse proxy/Caddy в repository stack не используется;
 - unit/integration/architecture tests выполняются через `bun:test`; browser E2E tool пока `TBD`, Playwright не является зависимостью M0.

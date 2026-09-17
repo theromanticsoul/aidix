@@ -100,13 +100,15 @@ FSD boundaries должны проверяться automated architecture/lint t
 
 ## 4. Canonical stack
 
-- Next.js 16+ App Router;
+- latest stable Next.js App Router;
 - TypeScript strict mode;
 - React;
+- React Compiler;
 - strict Feature-Sliced Design;
 - Tailwind CSS;
 - shadcn/ui;
 - Bun runtime/package manager/script runner/test runner;
+- Biome formatter/linter for TypeScript/JavaScript/JSON;
 - external PostgreSQL;
 - Prisma ORM/migrations;
 - Better Auth + Email OTP;

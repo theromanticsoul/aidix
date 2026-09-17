@@ -13,11 +13,13 @@ AIDIX — AI-сервис визуализации интерьера по фо�
 - Robokassa — payment provider MVP.
 - Better Auth + Email OTP — auth mechanism MVP. Password auth не используется.
 - React Email — canonical layer для transactional email templates.
+- React Compiler включён для React-кода.
 - Email отправляется через SMTP, конфигурация SMTP задаётся ENV. SMTP transport package — replaceable infrastructure detail и не должен протекать в domain/application code.
 - T3 Env + Valibot — canonical ENV validation layer.
 - Formisch + Valibot — canonical frontend form layer.
 - Valibot — canonical schema-validation library проекта; не добавлять Zod без explicit architecture decision.
 - Bun — runtime, package manager, script runner и test runner.
+- Biome — canonical formatter/linter для TypeScript/JavaScript/JSON.
 - Frontend Next.js строго следует Feature-Sliced Design.
 - UI/styling строго Tailwind CSS + shadcn/ui.
 - Credit списывается за продуктовую операцию, а не за upstream provider accounting.

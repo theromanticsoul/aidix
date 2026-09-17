@@ -6,7 +6,9 @@ Roadmap fixes implementation order, not calendar promises.
 
 Acceptance:
 
-- Next.js/TypeScript project running with Bun as runtime/package manager;
+- latest stable Next.js/TypeScript project running with Bun as runtime/package manager;
+- React Compiler enabled;
+- Biome formatter/linter configured;
 - strict FSD skeleton and automated import-boundary checks;
 - Tailwind CSS + shadcn/ui only;
 - Formisch + Valibot form foundation;

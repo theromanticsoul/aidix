@@ -42,17 +42,26 @@ AIDIX **не обещает**:
 
 ## 4. MVP scope
 
-### 4.1 Account
+### 4.1 Account and authentication
 
 Для запуска генерации требуется account.
 
-Initial auth:
+MVP authentication — **passwordless email OTP** через Better Auth:
 
-- email + password;
-- email verification может быть включена до production launch;
-- social login является optional follow-up и не блокирует MVP.
+1. пользователь вводит email;
+2. система отправляет одноразовый код на этот адрес;
+3. пользователь вводит код;
+4. успешная проверка кода создаёт/подтверждает account при первом входе либо открывает существующую session;
+5. password authentication в MVP не используется.
 
-После первого подтверждённого account пользователь получает **3 promotional credits** ровно один раз. В пользовательском интерфейсе это представляется как **3 бесплатные генерации**.
+Конкретный transactional email provider для доставки OTP — `TBD` и должен быть отдельно утверждён владельцем продукта. Product code не должен привязывать auth domain к конкретному email vendor.
+
+Future auth:
+
+- social login planned после MVP/по отдельному решению;
+- конкретные social providers (`Google`, `VK`, `Yandex`, etc.) не выбраны и остаются `TBD` до explicit owner decision.
+
+После первого eligible подтверждённого account пользователь получает **3 promotional credits** ровно один раз. В пользовательском интерфейсе это представляется как **3 бесплатные генерации**.
 
 Один standard generated variant расходует `1 credit`. Следовательно, стартовые 3 promotional credits можно использовать как три одиночные генерации либо распределить на multi-variant request, где каждый requested variant расходует отдельный credit.
 
@@ -242,7 +251,7 @@ Landing содержит расширенное объяснение огран�
 Начальные product metrics:
 
 - landing -> generator/account conversion;
-- verified signup -> first generation started;
+- first successful OTP sign-in -> first generation started;
 - first generation success rate;
 - time to first successful result;
 - generation -> download rate;

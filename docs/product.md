@@ -52,7 +52,9 @@ Initial auth:
 - email verification может быть включена до production launch;
 - social login является optional follow-up и не блокирует MVP.
 
-После первого подтверждённого account пользователь получает `1` promotional credit ровно один раз.
+После первого подтверждённого account пользователь получает **3 promotional credits** ровно один раз. В пользовательском интерфейсе это представляется как **3 бесплатные генерации**.
+
+Один standard generated variant расходует `1 credit`. Следовательно, стартовые 3 promotional credits можно использовать как три одиночные генерации либо распределить на multi-variant request, где каждый requested variant расходует отдельный credit.
 
 ### 4.2 Project
 
@@ -245,7 +247,7 @@ Landing содержит расширенное объяснение огран�
 - time to first successful result;
 - generation -> download rate;
 - generation -> rerun rate;
-- free credit -> paid purchase conversion;
+- free promotional credits -> paid purchase conversion;
 - technical provider failure rate.
 
 Не использовать «AI quality score» как единственную product metric. Нужны реальные user actions.

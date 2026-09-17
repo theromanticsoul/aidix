@@ -40,7 +40,7 @@ AIDIX не является CAD/BIM-системой и не заменяет р
 | [Domain](docs/domain.md) | Сущности, lifecycle, invariants, credits и ownership. |
 | [Implementation](docs/implementation.md) | Архитектура, стек, FSD frontend, AI integration, storage, jobs, security и deployment. |
 | [UI](docs/ui.md) | IA, landing, generator, result flow, states, responsive semantics и SEO surface. |
-| [Billing](docs/billing.md) | Credit ledger, пакеты, платежный lifecycle и refunds. |
+| [Billing](docs/billing.md) | Credit ledger, пакеты, Robokassa integration, payment lifecycle и refunds. |
 | [Testing](docs/testing.md) | Quality gates, contract tests, architecture checks, image-generation fixtures и release verification. |
 | [Roadmap](docs/roadmap.md) | Порядок реализации, acceptance gates и future modules. |
 | [Research](docs/research.md) | Ненормативный срез конкурентов и внешних технологий на дату исследования. |
@@ -68,7 +68,7 @@ src/
       db/        Prisma/PostgreSQL adapters
       storage/   S3-compatible object storage
       ai/kie/    Kie.ai adapter
-      payments/  payment-provider adapter
+      payments/  Robokassa adapter behind payment port
 worker/
   generation worker из той же codebase
 prisma/
@@ -90,7 +90,7 @@ FSD dependency direction: `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_enti
 - внешний S3-compatible object storage для source/reference/generated images, подключаемый только через ENV и не поднимаемый Compose;
 - **Kie.ai** как единственный image-generation API gateway MVP; initial model — `gpt-image-2-5-sunburst-image-to-image`;
 - асинхронный Kie flow: `createTask -> callback/reconciliation -> copy result to AIDIX S3`;
-- ЮKassa как первый production payment adapter для РФ;
+- **Robokassa** как production payment provider MVP;
 - Docker Compose как обязательный способ запуска всего application stack в local/prod;
 - Caddy как reverse proxy/TLS в production single-host topology.
 

@@ -16,9 +16,11 @@ Credits are internal product units, not upstream provider tokens and not tied to
 
 ## 3. Signup promotion
 
-Verified/new eligible account receives `1` free credit once.
+Verified/new eligible account receives **`3` free promotional credits once**. Product/UI copy may call this **3 бесплатные генерации**, because one standard generated variant costs one credit.
 
-Abuse controls may require email verification, rate limits and additional anti-fraud checks. Product must not silently grant repeat credits after account recreation using the same verified identity where a reliable signal exists.
+The same three credits may be spent on three single-variant requests or on one/more multi-variant requests. For example, a request for three variants consumes all three promotional credits.
+
+Abuse controls may require email verification, rate limits and additional anti-fraud checks. Product must not silently grant repeat promotional credits after account recreation using the same verified identity where a reliable signal exists.
 
 ## 4. Package catalog
 
@@ -80,7 +82,7 @@ If monetary refund reverses unused purchased credits, system creates a `PAYMENT_
 
 Purchased credits do not expire in MVP unless legal/business policy explicitly changes.
 
-Promotional credits may have future expiry, but signup credit v1 has no expiry to avoid separate expiry accounting in initial implementation.
+Promotional credits may have future expiry, but signup promotion v1 has no expiry to avoid separate expiry accounting in initial implementation.
 
 ## 9. Currency/taxes/receipts
 

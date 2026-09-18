@@ -47,5 +47,5 @@ describe.if(enabled)("external S3-compatible storage", () => {
     await client.send(
       new DeleteObjectCommand({ Bucket: Bun.env.S3_BUCKET, Key: key }),
     );
-  });
+  }, 30_000);
 });

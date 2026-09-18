@@ -8,7 +8,7 @@ This document is operational handoff, not canonical requirements.
 
 ## Current task
 
-`IN PROGRESS` — queued REDESIGN_PHOTO generation slice, atomic credit charge, prompt snapshot, Kie.ai provider adapter, and worker orchestration.
+`IN PROGRESS` — queued REDESIGN_PHOTO generation slice, atomic credit charge, prompt snapshot, Kie.ai provider adapter, worker orchestration, and generator form.
 
 ## Inputs completed
 
@@ -37,8 +37,9 @@ This document is operational handoff, not canonical requirements.
 
 Continue with M3 according to `docs/roadmap.md`:
 
-1. Add generator UI and opt-in Kie smoke test;
-2. Verify external PostgreSQL/S3 behavior with configured test services.
+1. Add opt-in Kie smoke test;
+2. Verify external PostgreSQL/S3 behavior with configured test services;
+3. Add generation status/result UI.
 
 ## Verification
 
@@ -53,6 +54,7 @@ Continue with M3 according to `docs/roadmap.md`:
 - Generation cost, queued lifecycle input, prompt constraints, and insufficient-credit behavior are covered by Bun tests.
 - Worker submission, provider failure handling, and the authoritative output persistence contract are covered by Bun tests.
 - Prisma worker adapter claims pending variants, persists Kie task ids, copies normalized results to S3, derives parent status, and refunds terminal failures idempotently.
+- Project screen has the first Formisch generator form for source photo, room type, style, wishes, immutable instructions, and 1-4 variants.
 
 ## Non-blocking TBD decisions
 

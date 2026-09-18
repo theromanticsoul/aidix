@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GeneratorForm } from "@/4_features/generation/ui/generator-form";
 import { ProjectActions } from "@/4_features/projects/ui/project-actions";
 import { SourcePhotoUpload } from "@/4_features/projects/ui/source-photo-upload";
 import { getAuthenticatedUserId } from "@/server/auth/session";
@@ -57,14 +58,13 @@ export default async function ProjectPage({
               {project.defaultRoomType || "Тип комнаты не выбран"}
             </p>
           </div>
-          <button
-            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white"
-            type="button"
-          >
-            Создать дизайн
-          </button>
         </div>
         <SourcePhotoUpload projectId={project.id} initialAssets={assets} />
+        <GeneratorForm
+          projectId={project.id}
+          initialAssets={assets}
+          initialRoomType={project.defaultRoomType}
+        />
         <ProjectActions
           projectId={project.id}
           initialName={project.name}

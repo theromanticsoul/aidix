@@ -4,11 +4,11 @@ This document is operational handoff, not canonical requirements.
 
 ## Current milestone
 
-`M0 — Repository foundation`
+`M1 — Project and asset foundation`
 
 ## Current task
 
-`COMPLETED` — initialize the AIDIX codebase from the canonical documentation.
+`COMPLETED locally` — project CRUD, owner-scoped access, source image foundation, and gallery shell.
 
 ## Inputs completed
 
@@ -34,13 +34,12 @@ This document is operational handoff, not canonical requirements.
 
 ## Next action
 
-Continue with M1 according to `docs/roadmap.md`:
+Continue with M2 according to `docs/roadmap.md`:
 
-1. Project CRUD with owner-scoped access;
-2. Formisch + Valibot project forms;
-3. External S3 storage boundary;
-4. Image upload validation and normalization;
-5. Project gallery/history shell.
+1. Complete production Better Auth Email OTP flow;
+2. Connect React Email template and SMTP transport to auth callbacks;
+3. Implement append-only credit ledger and one-time `+3` promo grant;
+4. Add balance UI and atomic reserve/charge helpers.
 
 ## Verification
 
@@ -49,6 +48,8 @@ Continue with M1 according to `docs/roadmap.md`:
 - `bun test` passes;
 - `bun run build` passes with configured placeholder ENV;
 - Prisma schema validates and Prisma Client generates with external PostgreSQL configuration.
+- M1 unit tests cover project owner isolation and image normalization.
+- Opt-in PostgreSQL and S3 integration tests are available and skipped without explicit `INTEGRATION_TESTS=true` configuration.
 
 ## Non-blocking TBD decisions
 
@@ -62,6 +63,6 @@ SMTP vendor is not a product TBD: deployment supplies a compatible SMTP server t
 
 ## Blockers
 
-None for starting M0.
+M1 external PostgreSQL/S3 integration tests require explicitly configured test services; normal CI remains network-free.
 
 Do not substitute guessed values for the remaining TBD decisions.

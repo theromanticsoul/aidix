@@ -316,7 +316,7 @@ resolution: 1K
 
 This profile is approved for opt-in contract/smoke tests only and does not approve the production model or production resolution. Production remains `TBD` until the M3 decision is recorded.
 
-Exact model/path/payload/callback contract is documented only after explicit model approval before M3. Do not guess it.
+The owner-approved test profile uses Kie's documented `POST /api/v1/jobs/createTask` contract with `model`, `callBackUrl`, and `input` fields. The image-to-image input uses `prompt`, `input_urls`, `aspect_ratio`, `resolution`, and `background`; the accepted response maps `data.taskId` to the internal provider task id. Task reconciliation uses Kie's `recordInfo` endpoint. This contract is used only for the approved test profile; production model remains `TBD`.
 
 Application port remains provider-shape-neutral:
 

@@ -4,11 +4,11 @@ This document is operational handoff, not canonical requirements.
 
 ## Current milestone
 
-`M2 — Auth completion and credits`
+`M3 — First AI generation`
 
 ## Current task
 
-`COMPLETED locally` — Better Auth Email OTP client/server flow, SMTP delivery boundary, signup promo ledger, and balance UI.
+`IN PROGRESS` — queued REDESIGN_PHOTO generation slice, atomic credit charge, prompt snapshot, and Kie.ai provider adapter.
 
 ## Inputs completed
 
@@ -37,10 +37,10 @@ This document is operational handoff, not canonical requirements.
 
 Continue with M3 according to `docs/roadmap.md`:
 
-1. Owner approval of the Kie.ai image model;
-2. Implement `REDESIGN_PHOTO` generation lifecycle;
-3. Add worker claim/reconciliation flow;
-4. Connect generation charge/reservation to created variants.
+1. Add worker claim/reconciliation flow;
+2. Copy authoritative provider output into private AIDIX S3;
+3. Add technical-failure refunds and parent status derivation;
+4. Add generator UI and opt-in Kie smoke test.
 
 ## Verification
 
@@ -52,12 +52,13 @@ Continue with M3 according to `docs/roadmap.md`:
 - M1 unit tests cover project owner isolation and image normalization.
 - Opt-in PostgreSQL and S3 integration tests are available and skipped without explicit `INTEGRATION_TESTS=true` configuration.
 - Credit idempotency, balance isolation, OTP email rendering, and fake sender tests pass locally.
+- Generation cost, queued lifecycle input, prompt constraints, and insufficient-credit behavior are covered by Bun tests.
 
 ## Non-blocking TBD decisions
 
 These do not block M0:
 
-- exact Kie.ai image model — required before M3;
+- production Kie.ai image model — remains `TBD`; the approved Sunburst profile is test/smoke-only;
 - browser E2E framework — checkpoint M3–M4, required before production launch;
 - paid catalog/package sizes/prices/currency/fiscal settings — required before M6.
 

@@ -115,6 +115,8 @@ Use fake HTTP fixtures; no paid Kie calls in normal CI.
 
 Exact model contract tests are finalized after owner selects `KIE_IMAGE_MODEL` before M3.
 
+The current owner-approved opt-in test profile is `gpt-image-2-5-sunburst-image-to-image` at `1K` resolution. It is intended for test/smoke usage and must not be treated as the production model decision.
+
 Generic required behavior:
 
 - successful task submission/task id mapping;

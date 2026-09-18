@@ -208,6 +208,8 @@ S3_FORCE_PATH_STYLE
 KIE_API_BASE_URL=https://api.kie.ai
 KIE_API_KEY
 KIE_IMAGE_MODEL=TBD
+KIE_TEST_IMAGE_MODEL=gpt-image-2-5-sunburst-image-to-image
+KIE_TEST_IMAGE_RESOLUTION=1K
 
 # Robokassa
 ROBOKASSA_MERCHANT_LOGIN
@@ -304,6 +306,15 @@ Kie.ai is the only generation gateway MVP.
 ```text
 KIE_IMAGE_MODEL=TBD
 ```
+
+Owner-approved test profile:
+
+```text
+model: gpt-image-2-5-sunburst-image-to-image
+resolution: 1K
+```
+
+This profile is approved for opt-in contract/smoke tests only and does not approve the production model or production resolution. Production remains `TBD` until the M3 decision is recorded.
 
 Exact model/path/payload/callback contract is documented only after explicit model approval before M3. Do not guess it.
 

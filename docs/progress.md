@@ -31,6 +31,7 @@ This document is operational handoff, not canonical requirements.
 - Tailwind + shadcn/ui and strict FSD frontend confirmed;
 - Docker application stack confirmed without Caddy/PostgreSQL/S3 containers;
 - paid catalog/prices remain `TBD`.
+- owner-approved Kie.ai test profile: GPT Image 2.5 Sunburst, `1K`; production model remains `TBD`.
 
 ## Next action
 

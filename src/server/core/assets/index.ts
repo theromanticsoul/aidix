@@ -5,3 +5,4 @@ export type {
   CreateAssetInput,
 } from "./asset";
 export { uploadProjectImage } from "./image-upload";
+export { normalizeImage } from "./image-validation";

@@ -19,3 +19,10 @@ export {
   InsufficientCreditsError,
   InvalidGenerationInputError,
 } from "./service";
+export {
+  type GenerationWorkerRepository,
+  type PendingGenerationVariant,
+  type RunningGenerationVariant,
+  reconcileNextGenerationVariant,
+  submitNextGenerationVariant,
+} from "./worker";

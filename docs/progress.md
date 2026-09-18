@@ -8,7 +8,7 @@ This document is operational handoff, not canonical requirements.
 
 ## Current task
 
-`IN PROGRESS` — queued REDESIGN_PHOTO generation slice, atomic credit charge, prompt snapshot, and Kie.ai provider adapter.
+`IN PROGRESS` — queued REDESIGN_PHOTO generation slice, atomic credit charge, prompt snapshot, Kie.ai provider adapter, and worker orchestration ports.
 
 ## Inputs completed
 
@@ -37,10 +37,9 @@ This document is operational handoff, not canonical requirements.
 
 Continue with M3 according to `docs/roadmap.md`:
 
-1. Add worker claim/reconciliation flow;
-2. Copy authoritative provider output into private AIDIX S3;
-3. Add technical-failure refunds and parent status derivation;
-4. Add generator UI and opt-in Kie smoke test.
+1. Implement Prisma worker claim/reconciliation adapter;
+2. Connect technical-failure refunds and parent status derivation;
+3. Add generator UI and opt-in Kie smoke test.
 
 ## Verification
 
@@ -53,6 +52,7 @@ Continue with M3 according to `docs/roadmap.md`:
 - Opt-in PostgreSQL and S3 integration tests are available and skipped without explicit `INTEGRATION_TESTS=true` configuration.
 - Credit idempotency, balance isolation, OTP email rendering, and fake sender tests pass locally.
 - Generation cost, queued lifecycle input, prompt constraints, and insufficient-credit behavior are covered by Bun tests.
+- Worker submission, provider failure handling, and the authoritative output persistence contract are covered by Bun tests.
 
 ## Non-blocking TBD decisions
 

@@ -30,7 +30,6 @@ export const serverEnv = createEnv({
     SMTP_FROM_EMAIL: v.pipe(v.string(), v.email()),
     SMTP_FROM_NAME: requiredText,
     S3_ENDPOINT: requiredUrl,
-    S3_PUBLIC_ENDPOINT: v.optional(requiredUrl),
     S3_REGION: requiredText,
     S3_BUCKET: requiredText,
     S3_ACCESS_KEY_ID: requiredText,

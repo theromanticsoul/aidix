@@ -25,9 +25,6 @@ function createClient(endpoint: string): S3Client {
 }
 
 const client = createClient(serverEnv.S3_ENDPOINT);
-const signingClient = createClient(
-  serverEnv.S3_PUBLIC_ENDPOINT ?? serverEnv.S3_ENDPOINT,
-);
 
 export class S3ObjectStorage implements ObjectStorage {
   async put(input: PutObjectInput): Promise<StoredObject> {
@@ -48,7 +45,7 @@ export class S3ObjectStorage implements ObjectStorage {
 
   getSignedReadUrl(key: string, ttlSeconds: number): Promise<string> {
     return getSignedUrl(
-      signingClient,
+      client,
       new GetObjectCommand({ Bucket: serverEnv.S3_BUCKET, Key: key }),
       { expiresIn: ttlSeconds },
     );

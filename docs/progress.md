@@ -55,6 +55,7 @@ Continue with M3 according to `docs/roadmap.md`:
 - Worker submission, provider failure handling, and the authoritative output persistence contract are covered by Bun tests.
 - Prisma worker adapter claims pending variants, persists Kie task ids, copies normalized results to S3, derives parent status, and refunds terminal failures idempotently.
 - Project screen has the first Formisch generator form for source photo, room type, style, wishes, immutable instructions, and 1-4 variants.
+- Owner approved `compose.dev.yml` for disposable PostgreSQL, MinIO, and Mailpit; production dependencies remain external.
 
 ## Non-blocking TBD decisions
 

@@ -1,0 +1,17 @@
+.git
+.agents
+.next
+node_modules
+coverage
+build
+out
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+compose*.yml
+docs
+tests
+AGENTS.md
+README.md
+skills-lock.json

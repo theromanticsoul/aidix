@@ -1,0 +1,113 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aidix
+      POSTGRES_USER: aidix
+      POSTGRES_PASSWORD: aidix
+    ports:
+      - "55432:5432"
+    volumes:
+      - aidix-dev-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aidix -d aidix"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    volumes:
+      - aidix-dev-minio:/data
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2024-11-21T17-21-54Z
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/aidix-dev
+
+  mailpit:
+    image: axllent/mailpit:v1.21.8
+    ports:
+      - "11025:1025"
+      - "18025:8025"
+
+  migrate:
+    build:
+      context: .
+      target: migrate
+    env_file: .env
+    command: ["bun", "run", "db:push"]
+    environment:
+      DATABASE_URL: postgresql://aidix:aidix@postgres:5432/aidix
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      target: web
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://aidix:aidix@postgres:5432/aidix
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: aidix-dev
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: "true"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_USER: dev
+      SMTP_PASSWORD: dev
+      SMTP_FROM_EMAIL: no-reply@aidix.local
+      SMTP_FROM_NAME: AIDIX Dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      target: worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://aidix:aidix@postgres:5432/aidix
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: aidix-dev
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: "true"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_USER: dev
+      SMTP_PASSWORD: dev
+      SMTP_FROM_EMAIL: no-reply@aidix.local
+      SMTP_FROM_NAME: AIDIX Dev
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+
+volumes:
+  aidix-dev-postgres:
+  aidix-dev-minio:

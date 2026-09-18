@@ -67,7 +67,9 @@ Do not treat client Formisch validation as an authorization/security boundary.
 
 ## 5. Database integration
 
-Real SQL semantics use explicitly configured external test PostgreSQL via ENV; no local PostgreSQL container and no SQLite substitute for locking/transaction behavior.
+Real SQL semantics use explicitly configured PostgreSQL. Development integration may use the disposable PostgreSQL from `compose.dev.yml`; CI/production-like verification uses explicitly configured external PostgreSQL via ENV. SQLite is never a substitute for locking/transaction behavior.
+
+The disposable development database is initialized with `prisma db push`. Production and migration verification use committed Prisma migrations via `prisma migrate deploy`.
 
 Verify:
 
@@ -80,11 +82,11 @@ Verify:
 
 ## 6. Storage integration
 
-Normal tests use fake `ObjectStorage`. Dedicated opt-in tests use external S3-compatible test bucket from ENV.
+Normal tests use fake `ObjectStorage`. Development integration may use the disposable MinIO from `compose.dev.yml`; dedicated opt-in tests may also use an external S3-compatible test bucket from ENV.
 
 Verify private put/read/delete, signed URL behavior, content type, private ACL/access assumptions and opaque object keys.
 
-No filesystem/MinIO fallback.
+No filesystem fallback. MinIO is a development/integration service only, not a production fallback.
 
 ## 7. Authentication / React Email / SMTP tests
 

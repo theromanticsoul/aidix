@@ -409,7 +409,19 @@ worker
 migrate
 ```
 
-PostgreSQL/S3/SMTP servers are external and configured through ENV. No Caddy in repository stack.
+Production PostgreSQL/S3/SMTP servers and the reverse proxy are external and configured through ENV/deployment configuration. No Caddy/Nginx is included in the production repository stack.
+
+Development may use `compose.dev.yml` with disposable PostgreSQL, MinIO, and Mailpit services. These services are development-only compatibility dependencies and are never required by the production deployment. The development Compose file also runs `web`, `worker`, and the one-shot `migrate` process against those dependencies.
+
+Development startup uses `prisma db push` against the disposable database because development migrations are not committed as production migration history. Production `migrate` continues to run `prisma migrate deploy` against committed migrations.
+
+Development startup:
+
+```text
+docker compose -f compose.dev.yml up --build
+```
+
+Development endpoints are the Next.js app at `http://localhost:3000`, MinIO API at `http://localhost:19000`, MinIO console at `http://localhost:19001`, and Mailpit UI at `http://localhost:18025`. Development credentials and service endpoints are supplied by Compose overrides; production secrets must never be copied into the Compose file.
 
 One multi-stage Dockerfile should expose `web`, `worker`, `migrate` targets.
 
@@ -460,7 +472,7 @@ MVP does not add:
 
 - Redis/event bus/Kubernetes/vector DB;
 - separate backend service;
-- local PostgreSQL/MinIO/S3;
+- local PostgreSQL/MinIO/S3 in production;
 - Caddy/reverse proxy container;
 - password auth;
 - direct OpenAI/fal.ai/Replicate integration;

@@ -7,8 +7,8 @@ AIDIX — AI-сервис визуализации интерьера по фо�
 ## Принципы
 
 - Сначала законченный photo-redesign MVP, затем editing/upscale/plan/3D.
-- PostgreSQL — единственная operational database MVP, но подключается только через `DATABASE_URL`; локальный PostgreSQL container не поднимается.
-- S3-compatible storage внешний и подключается через ENV; MinIO/local S3 не поднимается.
+- PostgreSQL — единственная operational database MVP; production подключается только через `DATABASE_URL`, development допускает disposable PostgreSQL в `compose.dev.yml`.
+- S3-compatible storage в production внешний и подключается через ENV; development допускает disposable MinIO в `compose.dev.yml`.
 - Kie.ai — единственный image-generation API gateway MVP; конкретная model остаётся `TBD` до owner decision перед M3.
 - Robokassa — payment provider MVP.
 - Better Auth + Email OTP — auth mechanism MVP. Password auth не используется.

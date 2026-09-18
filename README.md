@@ -86,7 +86,7 @@ FSD dependency direction: `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_enti
 - React + **Tailwind CSS + shadcn/ui как единственный UI/styling layer**;
 - strict Feature-Sliced Design для frontend-части Next.js;
 - **Bun как runtime, package manager, script runner и test runner**;
-- внешний PostgreSQL, подключаемый через `DATABASE_URL`; PostgreSQL container в Compose не поднимается;
+- production использует внешний PostgreSQL через `DATABASE_URL`; development допускает disposable PostgreSQL в `compose.dev.yml`;
 - Prisma ORM и migrations;
 - Better Auth + Email OTP для passwordless входа;
 - **React Email** для OTP и других transactional email templates;
@@ -95,15 +95,21 @@ FSD dependency direction: `1_app -> 2_pages -> 3_widgets -> 4_features -> 5_enti
 - **Formisch + Valibot** для пользовательских форм;
 - Valibot является canonical schema validation library; Zod/React Hook Form не входят в stack без отдельного решения;
 - social auth — future capability, конкретные providers `TBD`;
-- внешний S3-compatible object storage для source/reference/generated images, подключаемый только через ENV и не поднимаемый Compose;
+- production использует внешний S3-compatible object storage для source/reference/generated images через ENV; development допускает disposable MinIO в `compose.dev.yml`;
 - **Kie.ai** как единственный image-generation API gateway MVP; конкретная image model — `TBD` до owner decision перед M3;
 - **Robokassa** как production payment provider MVP;
 - Biome как formatter/linter для TypeScript/JavaScript/JSON;
-- Docker Compose как обязательный способ запуска AIDIX application processes (`web`, `worker`, `migrate`); внешний PostgreSQL и S3 остаются вне Compose;
+- Docker Compose как обязательный способ запуска AIDIX application processes (`web`, `worker`, `migrate`); production dependencies остаются вне Compose, а development dependencies описаны в `compose.dev.yml`;
 - отдельный reverse proxy/Caddy в repository stack не используется;
 - unit/integration/architecture tests выполняются через `bun:test`; browser E2E tool пока `TBD`, Playwright не является зависимостью M0.
 
-Redis, Kubernetes, отдельный API service, message broker, локальные PostgreSQL/MinIO containers, прямые OpenAI/fal.ai/Replicate integrations и собственный GPU inference в MVP не используются.
+Redis, Kubernetes, отдельный API service, message broker, production PostgreSQL/MinIO containers, прямые OpenAI/fal.ai/Replicate integrations и собственный GPU inference в MVP не используются. Disposable PostgreSQL/MinIO/Mailpit разрешены только для development в `compose.dev.yml`.
+
+Для локальной разработки с disposable dependencies:
+
+```bash
+docker compose -f compose.dev.yml up --build
+```
 
 ## Главный продуктовый invariant
 

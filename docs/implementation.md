@@ -198,6 +198,7 @@ SMTP_FROM_NAME
 
 # S3
 S3_ENDPOINT
+S3_PUBLIC_ENDPOINT (optional; signed URL endpoint when different from S3_ENDPOINT)
 S3_REGION
 S3_BUCKET
 S3_ACCESS_KEY_ID
@@ -296,6 +297,8 @@ interface ObjectStorage {
 Canonical DB field is opaque `storageKey`.
 
 Object keys never include email or original filenames. Bucket is private. User/provider access uses short-lived signed URLs.
+
+`S3_PUBLIC_ENDPOINT` is an optional endpoint for signed read URLs when the server-side `S3_ENDPOINT` is not reachable by a browser or external provider. It must address the same bucket and credentials. Development Compose uses MinIO internally and `http://localhost:19000` for host-browser access; a live external-provider smoke test requires a publicly reachable S3 endpoint or tunnel instead.
 
 Input images are validated/normalized server-side with `sharp`: decode, EXIF orientation, metadata strip, sRGB, size limit, checksum.
 

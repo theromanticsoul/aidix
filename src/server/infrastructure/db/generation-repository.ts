@@ -41,16 +41,6 @@ export class PrismaGenerationRepository implements GenerationRepository {
             const cost = calculateGenerationCost(input.requestedVariants);
             if ((balance._sum.amountSigned ?? 0) < cost) return null;
 
-            await transaction.creditLedgerEntry.create({
-              data: {
-                userId: input.userId,
-                type: "GENERATION_CHARGE",
-                amountSigned: -cost,
-                generationId: input.id,
-                idempotencyKey: input.creditReservationId,
-              },
-            });
-
             const generation = await transaction.generation.create({
               data: {
                 id: input.id,
@@ -77,6 +67,16 @@ export class PrismaGenerationRepository implements GenerationRepository {
                     }),
                   ),
                 },
+              },
+            });
+
+            await transaction.creditLedgerEntry.create({
+              data: {
+                userId: input.userId,
+                type: "GENERATION_CHARGE",
+                amountSigned: -cost,
+                generationId: input.id,
+                idempotencyKey: input.creditReservationId,
               },
             });
 

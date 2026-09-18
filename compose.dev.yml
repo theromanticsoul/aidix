@@ -32,9 +32,8 @@ services:
     depends_on:
       - minio
     entrypoint: ["/bin/sh", "-c"]
-    command: >-
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
-      mc mb --ignore-existing local/aidix-dev
+    command:
+      - "mc alias set local http://minio:9000 minioadmin minioadmin && mc mb --ignore-existing local/aidix-dev"
 
   mailpit:
     image: axllent/mailpit:v1.21.8
@@ -62,6 +61,7 @@ services:
     environment:
       DATABASE_URL: postgresql://aidix:aidix@postgres:5432/aidix
       S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:19000
       S3_REGION: us-east-1
       S3_BUCKET: aidix-dev
       S3_ACCESS_KEY_ID: minioadmin
@@ -90,6 +90,7 @@ services:
     environment:
       DATABASE_URL: postgresql://aidix:aidix@postgres:5432/aidix
       S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:19000
       S3_REGION: us-east-1
       S3_BUCKET: aidix-dev
       S3_ACCESS_KEY_ID: minioadmin

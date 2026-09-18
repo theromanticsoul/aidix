@@ -86,6 +86,8 @@ Normal tests use fake `ObjectStorage`. Development integration may use the dispo
 
 Verify private put/read/delete, signed URL behavior, content type, private ACL/access assumptions and opaque object keys.
 
+When testing an external provider from a local Compose stack, the signed URL endpoint must be publicly reachable by that provider; `localhost` is suitable only for browser/local storage checks.
+
 No filesystem fallback. MinIO is a development/integration service only, not a production fallback.
 
 ## 7. Authentication / React Email / SMTP tests

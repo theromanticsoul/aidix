@@ -12,15 +12,22 @@ import type {
   StoredObject,
 } from "@/server/core/storage";
 
-const client = new S3Client({
-  endpoint: serverEnv.S3_ENDPOINT,
-  region: serverEnv.S3_REGION,
-  forcePathStyle: serverEnv.S3_FORCE_PATH_STYLE,
-  credentials: {
-    accessKeyId: serverEnv.S3_ACCESS_KEY_ID,
-    secretAccessKey: serverEnv.S3_SECRET_ACCESS_KEY,
-  },
-});
+function createClient(endpoint: string): S3Client {
+  return new S3Client({
+    endpoint,
+    region: serverEnv.S3_REGION,
+    forcePathStyle: serverEnv.S3_FORCE_PATH_STYLE,
+    credentials: {
+      accessKeyId: serverEnv.S3_ACCESS_KEY_ID,
+      secretAccessKey: serverEnv.S3_SECRET_ACCESS_KEY,
+    },
+  });
+}
+
+const client = createClient(serverEnv.S3_ENDPOINT);
+const signingClient = createClient(
+  serverEnv.S3_PUBLIC_ENDPOINT ?? serverEnv.S3_ENDPOINT,
+);
 
 export class S3ObjectStorage implements ObjectStorage {
   async put(input: PutObjectInput): Promise<StoredObject> {
@@ -41,7 +48,7 @@ export class S3ObjectStorage implements ObjectStorage {
 
   getSignedReadUrl(key: string, ttlSeconds: number): Promise<string> {
     return getSignedUrl(
-      client,
+      signingClient,
       new GetObjectCommand({ Bucket: serverEnv.S3_BUCKET, Key: key }),
       { expiresIn: ttlSeconds },
     );

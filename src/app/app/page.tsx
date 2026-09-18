@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getAuthenticatedUserId } from "@/server/auth/session";
+import { getCreditBalance } from "@/server/core/credits";
 import { listProjects } from "@/server/core/projects";
+import { PrismaCreditLedger } from "@/server/infrastructure/db/credit-ledger";
 import { PrismaProjectRepository } from "@/server/infrastructure/db/project-repository";
 
 export default async function DashboardPage() {
@@ -12,6 +14,7 @@ export default async function DashboardPage() {
       </main>
     );
   const projects = await listProjects(new PrismaProjectRepository(), userId);
+  const balance = await getCreditBalance(new PrismaCreditLedger(), userId);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl px-6 py-10">
@@ -20,7 +23,7 @@ export default async function DashboardPage() {
           AIDIX
         </Link>
         <span className="text-sm text-slate-500">
-          3 бесплатные генерации для нового аккаунта
+          Баланс: {balance} кредитов
         </span>
       </header>
       <section className="mt-20 flex items-end justify-between gap-6">

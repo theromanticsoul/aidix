@@ -5,3 +5,9 @@ export const emailOtpSchema = v.object({
 });
 
 export type EmailOtpInput = v.InferInput<typeof emailOtpSchema>;
+
+export const otpSchema = v.object({
+  otp: v.pipe(v.string(), v.trim(), v.minLength(4), v.maxLength(12)),
+});
+
+export type OtpInput = v.InferInput<typeof otpSchema>;

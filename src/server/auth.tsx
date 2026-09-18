@@ -3,7 +3,9 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { serverEnv } from "@/server/config/env/server";
+import { grantSignupPromo } from "@/server/core/credits";
 import { db } from "@/server/infrastructure/db/client";
+import { PrismaCreditLedger } from "@/server/infrastructure/db/credit-ledger";
 import { SmtpEmailSender } from "@/server/infrastructure/email/smtp/sender";
 import { OtpEmail } from "@/server/infrastructure/email/templates/otp-email";
 
@@ -11,6 +13,15 @@ export const auth = betterAuth({
   database: prismaAdapter(db, { provider: "postgresql" }),
   baseURL: serverEnv.BETTER_AUTH_URL,
   secret: serverEnv.BETTER_AUTH_SECRET,
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          await grantSignupPromo(new PrismaCreditLedger(), user.id);
+        },
+      },
+    },
+  },
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp }) {

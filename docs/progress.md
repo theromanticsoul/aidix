@@ -4,11 +4,11 @@ This document is operational handoff, not canonical requirements.
 
 ## Current milestone
 
-`M1 — Project and asset foundation`
+`M2 — Auth completion and credits`
 
 ## Current task
 
-`COMPLETED locally` — project CRUD, owner-scoped access, source image foundation, and gallery shell.
+`COMPLETED locally` — Better Auth Email OTP client/server flow, SMTP delivery boundary, signup promo ledger, and balance UI.
 
 ## Inputs completed
 
@@ -34,12 +34,12 @@ This document is operational handoff, not canonical requirements.
 
 ## Next action
 
-Continue with M2 according to `docs/roadmap.md`:
+Continue with M3 according to `docs/roadmap.md`:
 
-1. Complete production Better Auth Email OTP flow;
-2. Connect React Email template and SMTP transport to auth callbacks;
-3. Implement append-only credit ledger and one-time `+3` promo grant;
-4. Add balance UI and atomic reserve/charge helpers.
+1. Owner approval of the Kie.ai image model;
+2. Implement `REDESIGN_PHOTO` generation lifecycle;
+3. Add worker claim/reconciliation flow;
+4. Connect generation charge/reservation to created variants.
 
 ## Verification
 
@@ -50,6 +50,7 @@ Continue with M2 according to `docs/roadmap.md`:
 - Prisma schema validates and Prisma Client generates with external PostgreSQL configuration.
 - M1 unit tests cover project owner isolation and image normalization.
 - Opt-in PostgreSQL and S3 integration tests are available and skipped without explicit `INTEGRATION_TESTS=true` configuration.
+- Credit idempotency, balance isolation, OTP email rendering, and fake sender tests pass locally.
 
 ## Non-blocking TBD decisions
 
@@ -63,6 +64,6 @@ SMTP vendor is not a product TBD: deployment supplies a compatible SMTP server t
 
 ## Blockers
 
-M1 external PostgreSQL/S3 integration tests require explicitly configured test services; normal CI remains network-free.
+M1 external PostgreSQL/S3 and M2 Better Auth database integration tests require explicitly configured test services; normal CI remains network-free.
 
 Do not substitute guessed values for the remaining TBD decisions.

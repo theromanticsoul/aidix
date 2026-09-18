@@ -1,1 +1,6 @@
-export { type EmailOtpInput, emailOtpSchema } from "./model/email-otp";
+export {
+  type EmailOtpInput,
+  emailOtpSchema,
+  type OtpInput,
+  otpSchema,
+} from "./model/email-otp";
